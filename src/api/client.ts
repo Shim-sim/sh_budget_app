@@ -1,5 +1,5 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import { storage } from '../utils/storage';
 
 // 로컬 백엔드 주소 (추후 환경변수로 분리)
 const BASE_URL = 'http://localhost:8080';
@@ -16,9 +16,9 @@ const apiClient = axios.create({
   },
 });
 
-// 요청마다 SecureStore에서 memberId 꺼내서 헤더에 주입
+// 요청마다 storage에서 memberId 꺼내서 헤더에 주입
 apiClient.interceptors.request.use(async (config) => {
-  const memberId = await SecureStore.getItemAsync(SECURE_STORE_KEY.MEMBER_ID);
+  const memberId = await storage.getItem(SECURE_STORE_KEY.MEMBER_ID);
   if (memberId) {
     config.headers['X-Member-Id'] = memberId;
   }
