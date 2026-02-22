@@ -1,8 +1,25 @@
+import { useEffect } from 'react';
 import { Redirect } from 'expo-router';
+import { View, ActivityIndicator } from 'react-native';
+import { useAuthStore } from '../src/stores/authStore';
+import colors from '../constants/colors';
 
 export default function Index() {
-  // TODO: 인증 상태 확인 후 분기
-  // 로그인 안 됨 → (auth)/login
-  // 로그인 됨  → (tabs)/
-  return <Redirect href="/(auth)/login" />;
+  const { isLoggedIn, isLoading, loadFromStorage } = useAuthStore();
+
+  useEffect(() => {
+    loadFromStorage();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-bg">
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  return isLoggedIn
+    ? <Redirect href="/(tabs)/" />
+    : <Redirect href="/(auth)/login" />;
 }
