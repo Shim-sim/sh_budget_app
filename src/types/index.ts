@@ -136,3 +136,44 @@ export interface TransactionListParams {
   month?: string;       // YYYY-MM
   type?: TransactionType;
 }
+
+// ─── Statistics ───────────────────────────────────────────────────────────────
+
+export interface MonthlySummary {
+  year: number;
+  month: number;
+  totalIncome: number;
+  totalExpense: number;
+  netIncome: number;
+  totalAssets: number;
+}
+
+export interface CategoryStatistics {
+  categoryId: number;
+  categoryName: string;
+  totalAmount: number;
+  transactionCount: number;
+  percentage: number;
+}
+
+export interface CategoryStatisticsResponse {
+  year: number;
+  month: number;
+  totalExpense: number;
+  categories: CategoryStatistics[];
+}
+
+export interface MemberContribution {
+  memberId: number;
+  memberNickname: string;
+  totalIncome: number;
+  totalExpense: number;
+  incomePercentage: number;
+  expensePercentage: number;
+}
+
+export interface StatisticsParams {
+  bookId: number;
+  year: number;
+  month: number;
+}

@@ -32,55 +32,167 @@ const formatDate = (dateStr: string) => {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 };
 
+// ─── 캘린더 뷰 ───────────────────────────────────────────────────────────────
+
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function CalendarView({
+  yyyymm,
+  dailyExpense,
+  dailyIncome,
+  onSelectDate,
+  selectedDate,
+}: {
+  yyyymm: string;
+  dailyExpense: Map<number, number>;
+  dailyIncome: Map<number, number>;
+  onSelectDate: (day: number) => void;
+  selectedDate: number | null;
+}) {
+  const [year, month] = yyyymm.split('-').map(Number);
+  const firstDay = new Date(year, month - 1, 1).getDay(); // 0=일
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
+  const todayDate = today.getDate();
+
+  // 빈 칸 + 날짜 배열
+  const cells: (number | null)[] = [
+    ...Array(firstDay).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  // 마지막 행 채우기
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const weeks: (number | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) {
+    weeks.push(cells.slice(i, i + 7));
+  }
+
+  return (
+    <View className="mx-6 mb-4 bg-card rounded-2xl border border-border overflow-hidden">
+      {/* 요일 헤더 */}
+      <View className="flex-row border-b border-border">
+        {WEEKDAYS.map((day, i) => (
+          <View key={day} className="flex-1 items-center py-2">
+            <Text
+              className="text-xs font-medium"
+              style={{
+                color: i === 0 ? colors.expense : i === 6 ? '#3B82F6' : colors.textSecondary,
+              }}
+            >
+              {day}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {/* 날짜 격자 */}
+      {weeks.map((week, wi) => (
+        <View key={wi} className={`flex-row ${wi < weeks.length - 1 ? 'border-b border-border' : ''}`}>
+          {week.map((day, di) => {
+            const hasExpense = day !== null && dailyExpense.has(day);
+            const hasIncome = day !== null && dailyIncome.has(day);
+            const isToday = isCurrentMonth && day === todayDate;
+            const isSelected = day === selectedDate;
+            const expense = day ? dailyExpense.get(day) : null;
+
+            return (
+              <TouchableOpacity
+                key={di}
+                className="flex-1 items-center py-2 px-0.5"
+                style={{
+                  backgroundColor: isSelected ? colors.primaryMuted : 'transparent',
+                  minHeight: 56,
+                }}
+                onPress={() => day && onSelectDate(day)}
+                disabled={!day}
+                activeOpacity={0.7}
+              >
+                {/* 날짜 숫자 */}
+                <View
+                  className="w-6 h-6 items-center justify-center rounded-full mb-0.5"
+                  style={{ backgroundColor: isToday ? colors.primary : 'transparent' }}
+                >
+                  <Text
+                    className="text-xs font-medium"
+                    style={{
+                      color: isToday
+                        ? colors.white
+                        : di === 0
+                        ? colors.expense
+                        : di === 6
+                        ? '#3B82F6'
+                        : day
+                        ? colors.textPrimary
+                        : 'transparent',
+                    }}
+                  >
+                    {day ?? ''}
+                  </Text>
+                </View>
+
+                {/* 거래 있음 점 */}
+                {(hasExpense || hasIncome) && (
+                  <View
+                    className="w-1 h-1 rounded-full mb-0.5"
+                    style={{ backgroundColor: hasExpense ? colors.expense : colors.income }}
+                  />
+                )}
+
+                {/* 지출 금액 */}
+                {expense && expense > 0 ? (
+                  <Text
+                    className="text-center leading-tight"
+                    style={{ color: colors.expense, fontSize: 9 }}
+                    numberOfLines={1}
+                  >
+                    {expense >= 10000
+                      ? `${Math.round(expense / 1000)}k`
+                      : expense.toLocaleString()}
+                  </Text>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // ─── 거래 아이템 ─────────────────────────────────────────────────────────────
 
 function TransactionItem({ tx, isLast }: { tx: Transaction; isLast: boolean }) {
   const iconName =
     tx.type === 'INCOME' ? 'arrow-down' :
     tx.type === 'EXPENSE' ? 'arrow-up' : 'swap-horizontal';
-
   const iconBg =
     tx.type === 'INCOME' ? colors.primaryMuted :
     tx.type === 'EXPENSE' ? '#FEF2F2' : '#FFFBEB';
-
   const iconColor =
     tx.type === 'INCOME' ? colors.income :
     tx.type === 'EXPENSE' ? colors.expense : colors.transfer;
-
-  const amountPrefix =
-    tx.type === 'INCOME' ? '+' : tx.type === 'EXPENSE' ? '-' : '';
-
+  const amountPrefix = tx.type === 'INCOME' ? '+' : tx.type === 'EXPENSE' ? '-' : '';
   const subText =
     tx.type === 'TRANSFER'
       ? `${tx.fromAssetName} → ${tx.toAssetName}`
       : tx.assetName ?? '';
-
   const label =
-    tx.memo ||
-    (tx.type === 'TRANSFER' ? '이체' : tx.type === 'INCOME' ? '수입' : '지출');
+    tx.memo || (tx.type === 'TRANSFER' ? '이체' : tx.type === 'INCOME' ? '수입' : '지출');
 
   return (
-    <View
-      className={`flex-row items-center px-4 py-3.5 ${
-        !isLast ? 'border-b border-border' : ''
-      }`}
-    >
+    <View className={`flex-row items-center px-4 py-3.5 ${!isLast ? 'border-b border-border' : ''}`}>
       <View
         className="w-9 h-9 rounded-xl items-center justify-center mr-3"
         style={{ backgroundColor: iconBg }}
       >
         <Ionicons name={iconName as any} size={16} color={iconColor} />
       </View>
-
       <View className="flex-1">
-        <Text className="text-text-primary text-sm font-medium" numberOfLines={1}>
-          {label}
-        </Text>
-        {subText ? (
-          <Text className="text-text-muted text-xs mt-0.5">{subText}</Text>
-        ) : null}
+        <Text className="text-text-primary text-sm font-medium" numberOfLines={1}>{label}</Text>
+        {subText ? <Text className="text-text-muted text-xs mt-0.5">{subText}</Text> : null}
       </View>
-
       <Text className="text-sm font-semibold" style={{ color: iconColor }}>
         {amountPrefix}{formatAmount(tx.amount)}원
       </Text>
@@ -92,27 +204,25 @@ function TransactionItem({ tx, isLast }: { tx: Transaction; isLast: boolean }) {
 
 export default function HomeScreen() {
   const [selectedMonth, setSelectedMonth] = useState(() => formatMonth(new Date()));
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
-  // 가계부 조회
   const { data: book } = useQuery({
     queryKey: ['book'],
     queryFn: () => bookApi.getMyBook().then((r) => r.data.data),
   });
 
-  // 거래 내역 조회
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ['transactions', book?.id, selectedMonth],
     queryFn: () =>
-      transactionApi
-        .getAll({ bookId: book!.id, month: selectedMonth })
-        .then((r) => r.data.data),
+      transactionApi.getAll({ bookId: book!.id, month: selectedMonth }).then((r) => r.data.data),
     enabled: !!book?.id,
   });
 
-  // 월 이동
   const changeMonth = (delta: number) => {
     const [y, m] = selectedMonth.split('-').map(Number);
     setSelectedMonth(formatMonth(new Date(y, m - 1 + delta)));
+    setSelectedDay(null);
   };
 
   // 월별 요약
@@ -129,93 +239,180 @@ export default function HomeScreen() {
     [transactions]
   );
 
-  // 날짜별 그룹핑
+  // 일별 지출/수입 합산 Map
+  const dailyExpense = useMemo(() => {
+    const map = new Map<number, number>();
+    transactions
+      .filter((t) => t.type === 'EXPENSE')
+      .forEach((t) => {
+        const day = parseInt(t.date.split('-')[2], 10);
+        map.set(day, (map.get(day) ?? 0) + t.amount);
+      });
+    return map;
+  }, [transactions]);
+
+  const dailyIncome = useMemo(() => {
+    const map = new Map<number, number>();
+    transactions
+      .filter((t) => t.type === 'INCOME')
+      .forEach((t) => {
+        const day = parseInt(t.date.split('-')[2], 10);
+        map.set(day, (map.get(day) ?? 0) + t.amount);
+      });
+    return map;
+  }, [transactions]);
+
+  // 날짜별 그룹핑 (리스트 뷰)
   const grouped = useMemo(() => {
+    const filtered = selectedDay
+      ? transactions.filter((t) => parseInt(t.date.split('-')[2], 10) === selectedDay)
+      : [...transactions].sort((a, b) => b.date.localeCompare(a.date));
+
     const map = new Map<string, Transaction[]>();
-    const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date));
+    const sorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
     for (const tx of sorted) {
       const list = map.get(tx.date) ?? [];
       map.set(tx.date, [...list, tx]);
     }
     return Array.from(map.entries()).map(([date, items]) => ({ date, items }));
-  }, [transactions]);
+  }, [transactions, selectedDay]);
 
   const net = summary.income - summary.expense;
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      {/* 월 선택 */}
-      <View className="flex-row items-center justify-between px-6 pt-2 pb-3">
-        <TouchableOpacity onPress={() => changeMonth(-1)} hitSlop={12}>
-          <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text className="text-lg font-bold text-text-primary">
-          {formatKoreanMonth(selectedMonth)}
-        </Text>
-        <TouchableOpacity onPress={() => changeMonth(1)} hitSlop={12}>
-          <Ionicons name="chevron-forward" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
+      <FlatList
+        data={grouped}
+        keyExtractor={(item) => item.date}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <>
+            {/* 월 선택 */}
+            <View className="flex-row items-center justify-between px-6 pt-2 pb-3">
+              <TouchableOpacity onPress={() => changeMonth(-1)} hitSlop={12}>
+                <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <Text className="text-lg font-bold text-text-primary">
+                {formatKoreanMonth(selectedMonth)}
+              </Text>
+              <TouchableOpacity onPress={() => changeMonth(1)} hitSlop={12}>
+                <Ionicons name="chevron-forward" size={22} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
 
-      {/* 요약 카드 */}
-      <View className="mx-6 mb-5 bg-primary rounded-3xl px-5 py-4">
-        <View className="flex-row justify-between mb-3">
-          <View>
-            <Text className="text-white/60 text-xs mb-1">수입</Text>
-            <Text className="text-white text-lg font-bold">
-              +{formatAmount(summary.income)}원
-            </Text>
-          </View>
-          <View className="items-end">
-            <Text className="text-white/60 text-xs mb-1">지출</Text>
-            <Text className="text-white text-lg font-bold">
-              -{formatAmount(summary.expense)}원
-            </Text>
-          </View>
-        </View>
-        <View className="h-px bg-white/20 mb-3" />
-        <View className="flex-row justify-between items-center">
-          <Text className="text-white/60 text-sm">순수익</Text>
-          <Text className="text-white text-base font-semibold">
-            {net >= 0 ? '+' : ''}{formatAmount(net)}원
-          </Text>
-        </View>
-      </View>
+            {/* 요약 카드 */}
+            <View className="mx-6 mb-4 bg-primary rounded-3xl px-5 py-4">
+              <View className="flex-row justify-between mb-3">
+                <View>
+                  <Text className="text-white/60 text-xs mb-1">수입</Text>
+                  <Text className="text-white text-lg font-bold">
+                    +{formatAmount(summary.income)}원
+                  </Text>
+                </View>
+                <View className="items-end">
+                  <Text className="text-white/60 text-xs mb-1">지출</Text>
+                  <Text className="text-white text-lg font-bold">
+                    -{formatAmount(summary.expense)}원
+                  </Text>
+                </View>
+              </View>
+              <View className="h-px bg-white/20 mb-3" />
+              <View className="flex-row justify-between items-center">
+                <Text className="text-white/60 text-sm">순수익</Text>
+                <Text className="text-white text-base font-semibold">
+                  {net >= 0 ? '+' : ''}{formatAmount(net)}원
+                </Text>
+              </View>
+            </View>
 
-      {/* 거래 내역 */}
-      {isLoading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      ) : grouped.length === 0 ? (
-        <View className="flex-1 items-center justify-center gap-1">
-          <Text className="text-text-muted text-base">거래 내역이 없어요</Text>
-          <Text className="text-text-muted text-sm">아래 + 버튼으로 추가해보세요</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={grouped}
-          keyExtractor={(item) => item.date}
-          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <View className="mb-4">
+            {/* 뷰 전환 토글 */}
+            <View className="flex-row mx-6 mb-3 bg-card rounded-2xl p-1 border border-border">
+              {(['calendar', 'list'] as const).map((mode) => (
+                <TouchableOpacity
+                  key={mode}
+                  className={`flex-1 py-2 rounded-xl items-center flex-row justify-center gap-1.5 ${
+                    viewMode === mode ? 'bg-primary' : ''
+                  }`}
+                  onPress={() => { setViewMode(mode); setSelectedDay(null); }}
+                >
+                  <Ionicons
+                    name={mode === 'calendar' ? 'calendar-outline' : 'list-outline'}
+                    size={14}
+                    color={viewMode === mode ? colors.white : colors.textSecondary}
+                  />
+                  <Text
+                    className={`text-sm font-semibold ${
+                      viewMode === mode ? 'text-white' : 'text-text-secondary'
+                    }`}
+                  >
+                    {mode === 'calendar' ? '달력' : '목록'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* 캘린더 */}
+            {viewMode === 'calendar' && (
+              <CalendarView
+                yyyymm={selectedMonth}
+                dailyExpense={dailyExpense}
+                dailyIncome={dailyIncome}
+                selectedDate={selectedDay}
+                onSelectDate={(day) =>
+                  setSelectedDay((prev) => (prev === day ? null : day))
+                }
+              />
+            )}
+
+            {/* 선택된 날짜 표시 */}
+            {selectedDay && (
+              <View className="flex-row items-center justify-between px-6 mb-2">
+                <Text className="text-sm font-semibold text-text-primary">
+                  {formatDate(
+                    `${selectedMonth}-${String(selectedDay).padStart(2, '0')}`
+                  )}
+                </Text>
+                <TouchableOpacity onPress={() => setSelectedDay(null)}>
+                  <Text className="text-text-muted text-xs">전체 보기</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {isLoading && (
+              <View className="items-center py-8">
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            )}
+          </>
+        }
+        renderItem={({ item }) =>
+          !isLoading ? (
+            <View className="px-6 mb-4">
               <Text className="text-sm text-text-secondary font-medium mb-2">
                 {formatDate(item.date)}
               </Text>
               <View className="bg-card rounded-2xl overflow-hidden border border-border">
                 {item.items.map((tx, idx) => (
-                  <TransactionItem
-                    key={tx.id}
-                    tx={tx}
-                    isLast={idx === item.items.length - 1}
-                  />
+                  <TransactionItem key={tx.id} tx={tx} isLast={idx === item.items.length - 1} />
                 ))}
               </View>
             </View>
-          )}
-        />
-      )}
+          ) : null
+        }
+        ListEmptyComponent={
+          !isLoading ? (
+            <View className="items-center py-8 gap-1">
+              <Text className="text-text-muted text-base">
+                {selectedDay ? '이 날 거래 내역이 없어요' : '거래 내역이 없어요'}
+              </Text>
+              {!selectedDay && (
+                <Text className="text-text-muted text-sm">아래 + 버튼으로 추가해보세요</Text>
+              )}
+            </View>
+          ) : null
+        }
+      />
     </SafeAreaView>
   );
 }
