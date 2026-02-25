@@ -67,7 +67,6 @@ export interface AssetSummary {
 }
 
 export interface AssetCreateRequest {
-  bookId: number;
   name: string;
   balance: number;
   ownerMemberId?: number | null;

@@ -47,9 +47,9 @@ function AssetFormModal({
     setIsSaving(true);
     try {
       if (asset) {
-        await assetApi.update(asset.id, { name: name.trim(), balance });
+        await assetApi.update(bookId, asset.id, { name: name.trim(), balance });
       } else {
-        await assetApi.create({ bookId, name: name.trim(), balance });
+        await assetApi.create(bookId, { name: name.trim(), balance });
       }
       onClose(true);
     } catch (err: any) {
@@ -151,7 +151,7 @@ export default function AssetsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await assetApi.delete(asset.id);
+              await assetApi.delete(book!.id, asset.id);
               invalidate();
             } catch (err: any) {
               Alert.alert('삭제 실패', err.message ?? '거래 내역이 있는 자산은 삭제할 수 없어요.');
