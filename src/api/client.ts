@@ -1,8 +1,16 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 import { storage } from '../utils/storage';
 
-// 로컬 백엔드 주소 (추후 환경변수로 분리)
-const BASE_URL = 'http://localhost:8080';
+// 로컬 백엔드 주소
+// - web/iOS 시뮬레이터: localhost 사용
+// - 실제 기기: Mac의 로컬 IP 사용 (같은 Wi-Fi 필요)
+const DEV_MACHINE_IP = '192.168.45.215';
+const BASE_URL = __DEV__
+  ? Platform.OS === 'web'
+    ? 'http://localhost:8080'
+    : `http://${DEV_MACHINE_IP}:8080`
+  : 'http://localhost:8080'; // 프로덕션 URL은 추후 변경
 
 export const SECURE_STORE_KEY = {
   MEMBER_ID: 'member_id',
