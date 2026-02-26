@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { bookApi } from '../../src/api/book';
@@ -139,10 +139,13 @@ const TYPE_LABELS: { type: TransactionType; label: string }[] = [
 export default function NewTransactionScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { date: paramDate } = useLocalSearchParams<{ date?: string }>();
 
   const [txType, setTxType] = useState<TransactionType>('EXPENSE');
   const [amountStr, setAmountStr] = useState('0');
-  const [date, setDate] = useState(toDateString(new Date()));
+  const [date, setDate] = useState(() =>
+    paramDate && /^\d{4}-\d{2}-\d{2}$/.test(paramDate) ? paramDate : toDateString(new Date())
+  );
   const [memo, setMemo] = useState('');
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [fromAsset, setFromAsset] = useState<Asset | null>(null);
@@ -207,6 +210,7 @@ export default function NewTransactionScreen() {
       });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['assets-total'] });
       router.back();
     } catch (err: any) {
       Alert.alert('등록 실패', err.message ?? '다시 시도해주세요.');

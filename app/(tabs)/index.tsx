@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { bookApi } from '../../src/api/book';
@@ -32,6 +33,12 @@ const formatDate = (dateStr: string) => {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 };
 
+/** 달력 셀용 금액 축약: 1억 미만은 콤마 표기, 1억 이상은 억 단위 */
+const formatCalendarAmount = (n: number): string => {
+  if (n >= 100_000_000) return `${Math.floor(n / 100_000_000)}억`;
+  return n.toLocaleString();
+};
+
 // ─── 캘린더 뷰 ───────────────────────────────────────────────────────────────
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -40,28 +47,28 @@ function CalendarView({
   yyyymm,
   dailyExpense,
   dailyIncome,
+  dailyTransfer,
   onSelectDate,
   selectedDate,
 }: {
   yyyymm: string;
   dailyExpense: Map<number, number>;
   dailyIncome: Map<number, number>;
+  dailyTransfer: Map<number, number>;
   onSelectDate: (day: number) => void;
   selectedDate: number | null;
 }) {
   const [year, month] = yyyymm.split('-').map(Number);
-  const firstDay = new Date(year, month - 1, 1).getDay(); // 0=일
+  const firstDay = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
   const today = new Date();
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
   const todayDate = today.getDate();
 
-  // 빈 칸 + 날짜 배열
   const cells: (number | null)[] = [
     ...Array(firstDay).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
-  // 마지막 행 채우기
   while (cells.length % 7 !== 0) cells.push(null);
 
   const weeks: (number | null)[][] = [];
@@ -70,14 +77,15 @@ function CalendarView({
   }
 
   return (
-    <View className="mx-6 mb-4 bg-card rounded-2xl border border-border overflow-hidden">
+    <View className="mx-6 mb-3 bg-card rounded-2xl border border-border overflow-hidden">
       {/* 요일 헤더 */}
       <View className="flex-row border-b border-border">
         {WEEKDAYS.map((day, i) => (
-          <View key={day} className="flex-1 items-center py-2">
+          <View key={day} className="flex-1 items-center py-1.5">
             <Text
-              className="text-xs font-medium"
+              className="font-medium"
               style={{
+                fontSize: 10,
                 color: i === 0 ? colors.expense : i === 6 ? '#3B82F6' : colors.textSecondary,
               }}
             >
@@ -91,19 +99,19 @@ function CalendarView({
       {weeks.map((week, wi) => (
         <View key={wi} className={`flex-row ${wi < weeks.length - 1 ? 'border-b border-border' : ''}`}>
           {week.map((day, di) => {
-            const hasExpense = day !== null && dailyExpense.has(day);
-            const hasIncome = day !== null && dailyIncome.has(day);
+            const income = day ? dailyIncome.get(day) ?? 0 : 0;
+            const expense = day ? dailyExpense.get(day) ?? 0 : 0;
+            const transfer = day ? dailyTransfer.get(day) ?? 0 : 0;
             const isToday = isCurrentMonth && day === todayDate;
             const isSelected = day === selectedDate;
-            const expense = day ? dailyExpense.get(day) : null;
 
             return (
               <TouchableOpacity
                 key={di}
-                className="flex-1 items-center py-2 px-0.5"
+                className="flex-1 items-center py-1 px-0.5"
                 style={{
                   backgroundColor: isSelected ? colors.primaryMuted : 'transparent',
-                  minHeight: 56,
+                  minHeight: 48,
                 }}
                 onPress={() => day && onSelectDate(day)}
                 disabled={!day}
@@ -111,12 +119,13 @@ function CalendarView({
               >
                 {/* 날짜 숫자 */}
                 <View
-                  className="w-6 h-6 items-center justify-center rounded-full mb-0.5"
+                  className="w-5 h-5 items-center justify-center rounded-full"
                   style={{ backgroundColor: isToday ? colors.primary : 'transparent' }}
                 >
                   <Text
-                    className="text-xs font-medium"
+                    className="font-medium"
                     style={{
+                      fontSize: 11,
                       color: isToday
                         ? colors.white
                         : di === 0
@@ -132,26 +141,36 @@ function CalendarView({
                   </Text>
                 </View>
 
-                {/* 거래 있음 점 */}
-                {(hasExpense || hasIncome) && (
-                  <View
-                    className="w-1 h-1 rounded-full mb-0.5"
-                    style={{ backgroundColor: hasExpense ? colors.expense : colors.income }}
-                  />
-                )}
-
-                {/* 지출 금액 */}
-                {expense && expense > 0 ? (
+                {/* 수입 */}
+                {income > 0 && (
                   <Text
                     className="text-center leading-tight"
-                    style={{ color: colors.expense, fontSize: 9 }}
+                    style={{ color: colors.income, fontSize: 8, marginTop: 1 }}
                     numberOfLines={1}
                   >
-                    {expense >= 10000
-                      ? `${Math.round(expense / 1000)}k`
-                      : expense.toLocaleString()}
+                    {formatCalendarAmount(income)}
                   </Text>
-                ) : null}
+                )}
+                {/* 지출 */}
+                {expense > 0 && (
+                  <Text
+                    className="text-center leading-tight"
+                    style={{ color: colors.expense, fontSize: 8 }}
+                    numberOfLines={1}
+                  >
+                    {formatCalendarAmount(expense)}
+                  </Text>
+                )}
+                {/* 이체 */}
+                {transfer > 0 && (
+                  <Text
+                    className="text-center leading-tight"
+                    style={{ color: colors.transfer, fontSize: 8 }}
+                    numberOfLines={1}
+                  >
+                    {formatCalendarAmount(transfer)}
+                  </Text>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -203,6 +222,7 @@ function TransactionItem({ tx, isLast }: { tx: Transaction; isLast: boolean }) {
 // ─── 홈 화면 ─────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
+  const router = useRouter();
   const [selectedMonth, setSelectedMonth] = useState(() => formatMonth(new Date()));
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
@@ -262,11 +282,34 @@ export default function HomeScreen() {
     return map;
   }, [transactions]);
 
-  // 날짜별 그룹핑 (리스트 뷰)
+  const dailyTransfer = useMemo(() => {
+    const map = new Map<number, number>();
+    transactions
+      .filter((t) => t.type === 'TRANSFER')
+      .forEach((t) => {
+        const day = parseInt(t.date.split('-')[2], 10);
+        map.set(day, (map.get(day) ?? 0) + t.amount);
+      });
+    return map;
+  }, [transactions]);
+
+  // 날짜별 그룹핑
+  const todayDay = new Date().getDate();
+  const isCurrentMonth = selectedMonth === formatMonth(new Date());
+
   const grouped = useMemo(() => {
-    const filtered = selectedDay
-      ? transactions.filter((t) => parseInt(t.date.split('-')[2], 10) === selectedDay)
-      : [...transactions].sort((a, b) => b.date.localeCompare(a.date));
+    let filtered: Transaction[];
+
+    if (viewMode === 'calendar') {
+      // 달력 뷰: 선택된 날짜 or 오늘 날짜의 거래만
+      const targetDay = selectedDay ?? (isCurrentMonth ? todayDay : null);
+      filtered = targetDay
+        ? transactions.filter((t) => parseInt(t.date.split('-')[2], 10) === targetDay)
+        : [];
+    } else {
+      // 목록 뷰: 해당 월 전체 거래
+      filtered = [...transactions];
+    }
 
     const map = new Map<string, Transaction[]>();
     const sorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
@@ -275,7 +318,7 @@ export default function HomeScreen() {
       map.set(tx.date, [...list, tx]);
     }
     return Array.from(map.entries()).map(([date, items]) => ({ date, items }));
-  }, [transactions, selectedDay]);
+  }, [transactions, selectedDay, viewMode, isCurrentMonth, todayDay]);
 
   const net = summary.income - summary.expense;
 
@@ -358,6 +401,7 @@ export default function HomeScreen() {
                 yyyymm={selectedMonth}
                 dailyExpense={dailyExpense}
                 dailyIncome={dailyIncome}
+                dailyTransfer={dailyTransfer}
                 selectedDate={selectedDay}
                 onSelectDate={(day) =>
                   setSelectedDay((prev) => (prev === day ? null : day))
@@ -365,19 +409,34 @@ export default function HomeScreen() {
               />
             )}
 
-            {/* 선택된 날짜 표시 */}
-            {selectedDay && (
-              <View className="flex-row items-center justify-between px-6 mb-2">
-                <Text className="text-sm font-semibold text-text-primary">
-                  {formatDate(
-                    `${selectedMonth}-${String(selectedDay).padStart(2, '0')}`
-                  )}
-                </Text>
-                <TouchableOpacity onPress={() => setSelectedDay(null)}>
-                  <Text className="text-text-muted text-xs">전체 보기</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            {/* 선택된 날짜 표시 (달력 뷰) */}
+            {viewMode === 'calendar' && (() => {
+              const displayDay = selectedDay ?? (isCurrentMonth ? todayDay : null);
+              if (!displayDay) return null;
+              const dateStr = `${selectedMonth}-${String(displayDay).padStart(2, '0')}`;
+              return (
+                <View className="flex-row items-center justify-between px-6 mb-2">
+                  <Text className="text-sm font-semibold text-text-primary">
+                    {formatDate(dateStr)}
+                    {!selectedDay && isCurrentMonth ? ' (오늘)' : ''}
+                  </Text>
+                  <View className="flex-row items-center gap-3">
+                    <TouchableOpacity
+                      className="flex-row items-center gap-1 bg-primary rounded-lg px-2.5 py-1"
+                      onPress={() => router.push(`/transaction/new?date=${dateStr}`)}
+                    >
+                      <Ionicons name="add" size={14} color={colors.white} />
+                      <Text className="text-white text-xs font-semibold">추가</Text>
+                    </TouchableOpacity>
+                    {selectedDay && (
+                      <TouchableOpacity onPress={() => setSelectedDay(null)}>
+                        <Text className="text-text-muted text-xs">오늘로</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              );
+            })()}
 
             {isLoading && (
               <View className="items-center py-8">
@@ -404,11 +463,11 @@ export default function HomeScreen() {
           !isLoading ? (
             <View className="items-center py-8 gap-1">
               <Text className="text-text-muted text-base">
-                {selectedDay ? '이 날 거래 내역이 없어요' : '거래 내역이 없어요'}
+                {viewMode === 'calendar'
+                  ? '오늘 거래 내역이 없어요'
+                  : '이번 달 거래 내역이 없어요'}
               </Text>
-              {!selectedDay && (
-                <Text className="text-text-muted text-sm">아래 + 버튼으로 추가해보세요</Text>
-              )}
+              <Text className="text-text-muted text-sm">아래 + 버튼으로 추가해보세요</Text>
             </View>
           ) : null
         }

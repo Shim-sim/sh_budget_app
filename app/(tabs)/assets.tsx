@@ -8,6 +8,8 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -39,10 +41,21 @@ function AssetFormModal({
     setBalanceStr(asset ? String(asset.balance) : '');
   };
 
+  const handleBalanceChange = (text: string) => {
+    const digits = text.replace(/[^0-9]/g, '');
+    if (digits === '') {
+      setBalanceStr('');
+      return;
+    }
+    setBalanceStr(String(parseInt(digits, 10)));
+  };
+
+  const displayBalance = balanceStr === '' ? '' : Number(balanceStr).toLocaleString();
+
   const handleSave = async () => {
     if (!name.trim()) { Alert.alert('자산 이름을 입력해주세요'); return; }
     const balance = parseInt(balanceStr || '0', 10);
-    if (isNaN(balance) || balance < 0) { Alert.alert('잔액을 올바르게 입력해주세요'); return; }
+    if (isNaN(balance)) { Alert.alert('잔액을 올바르게 입력해주세요'); return; }
 
     setIsSaving(true);
     try {
@@ -61,48 +74,53 @@ function AssetFormModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onShow={onShow}>
-      <TouchableOpacity className="flex-1 bg-black/40" activeOpacity={1} onPress={() => onClose(false)} />
-      <View className="bg-card rounded-t-3xl px-6 pt-5 pb-10">
-        <View className="w-10 h-1 bg-border rounded-full self-center mb-5" />
-        <Text className="text-lg font-bold text-text-primary mb-5">
-          {asset ? '자산 편집' : '자산 추가'}
-        </Text>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <TouchableOpacity className="flex-1 bg-black/40" activeOpacity={1} onPress={() => onClose(false)} />
+        <View className="bg-card rounded-t-3xl px-6 pt-5 pb-10">
+          <View className="w-10 h-1 bg-border rounded-full self-center mb-5" />
+          <Text className="text-lg font-bold text-text-primary mb-5">
+            {asset ? '자산 편집' : '자산 추가'}
+          </Text>
 
-        <Text className="text-sm text-text-secondary mb-2">자산 이름</Text>
-        <TextInput
-          className="bg-bg rounded-2xl px-4 py-3.5 text-text-primary text-base border border-border mb-4"
-          placeholder="예) 카카오뱅크, 현금"
-          placeholderTextColor={colors.textMuted}
-          value={name}
-          onChangeText={setName}
-          returnKeyType="next"
-        />
+          <Text className="text-sm text-text-secondary mb-2">자산 이름</Text>
+          <TextInput
+            className="bg-bg rounded-2xl px-4 py-3.5 text-text-primary text-base border border-border mb-4"
+            placeholder="예) 카카오뱅크, 현금"
+            placeholderTextColor={colors.textMuted}
+            value={name}
+            onChangeText={setName}
+            returnKeyType="next"
+          />
 
-        <Text className="text-sm text-text-secondary mb-2">
-          {asset ? '현재 잔액' : '초기 잔액'}
-        </Text>
-        <TextInput
-          className="bg-bg rounded-2xl px-4 py-3.5 text-text-primary text-base border border-border mb-6"
-          placeholder="0"
-          placeholderTextColor={colors.textMuted}
-          keyboardType="numeric"
-          value={balanceStr}
-          onChangeText={setBalanceStr}
-          returnKeyType="done"
-          onSubmitEditing={handleSave}
-        />
+          <Text className="text-sm text-text-secondary mb-2">
+            {asset ? '현재 잔액' : '초기 잔액'}
+          </Text>
+          <TextInput
+            className="bg-bg rounded-2xl px-4 py-3.5 text-text-primary text-base border border-border mb-6"
+            placeholder="0"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="number-pad"
+            value={displayBalance}
+            onChangeText={handleBalanceChange}
+            returnKeyType="done"
+            onSubmitEditing={handleSave}
+          />
 
-        <TouchableOpacity
-          className="bg-primary rounded-2xl py-4 items-center"
-          style={{ opacity: isSaving ? 0.6 : 1 }}
-          onPress={handleSave}
-          disabled={isSaving}
-        >
-          {isSaving
-            ? <ActivityIndicator color={colors.white} />
-            : <Text className="text-white font-bold text-base">저장</Text>}
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            className="bg-primary rounded-2xl py-4 items-center"
+            style={{ opacity: isSaving ? 0.6 : 1 }}
+            onPress={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving
+              ? <ActivityIndicator color={colors.white} />
+              : <Text className="text-white font-bold text-base">저장</Text>}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -138,6 +156,7 @@ export default function AssetsScreen() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['assets'] });
     queryClient.invalidateQueries({ queryKey: ['assets-total'] });
+    queryClient.invalidateQueries({ queryKey: ['stats-summary'] });
   };
 
   const handleDelete = (asset: Asset) => {
