@@ -26,7 +26,14 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png",
+      "name": "가계부",
+      "shortName": "가계부",
+      "description": "우리 가계부 앱",
+      "themeColor": "#2D5A4F",
+      "backgroundColor": "#F7F3EE"
     },
     "plugins": [
       "expo-router",
