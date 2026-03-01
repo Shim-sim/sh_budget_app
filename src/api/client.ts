@@ -2,6 +2,12 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import { storage } from '../utils/storage';
 
+// 프로덕션 백엔드 URL (Railway)
+const PROD_API_URL = 'https://shbudgetbe-production.up.railway.app';
+
+// API Key (2인 전용 앱이므로 빌드타임 하드코딩)
+const API_KEY = 'sh-budget-2025-secret-key';
+
 // 로컬 백엔드 주소
 // - PC 브라우저: localhost 사용
 // - 폰 브라우저/실제 기기: Mac의 로컬 IP 사용 (같은 Wi-Fi 필요)
@@ -9,7 +15,7 @@ const DEV_MACHINE_IP = '192.168.45.129';
 
 function getBaseUrl() {
   if (!__DEV__) {
-    return 'http://localhost:8080'; // TODO: 배포 시 실제 백엔드 URL로 변경
+    return PROD_API_URL;
   }
   if (Platform.OS !== 'web') {
     return `http://${DEV_MACHINE_IP}:8080`;
@@ -35,12 +41,13 @@ const apiClient = axios.create({
   },
 });
 
-// 요청마다 storage에서 memberId 꺼내서 헤더에 주입
+// 요청마다 storage에서 memberId 꺼내서 헤더에 주입 + API Key 추가
 apiClient.interceptors.request.use(async (config) => {
   const memberId = await storage.getItem(SECURE_STORE_KEY.MEMBER_ID);
   if (memberId) {
     config.headers['X-Member-Id'] = memberId;
   }
+  config.headers['X-Api-Key'] = API_KEY;
   return config;
 });
 
