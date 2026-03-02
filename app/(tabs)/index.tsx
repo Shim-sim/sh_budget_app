@@ -33,6 +33,53 @@ const formatDate = (dateStr: string) => {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 };
 
+// ─── 한국 공휴일 ──────────────────────────────────────────────────────────────
+
+/** 고정 공휴일 (매년 동일) */
+const FIXED_HOLIDAYS: Record<string, string> = {
+  '01-01': '새해',
+  '03-01': '삼일절',
+  '05-05': '어린이날',
+  '06-06': '현충일',
+  '08-15': '광복절',
+  '10-03': '개천절',
+  '10-09': '한글날',
+  '12-25': '크리스마스',
+};
+
+/** 음력 기반 공휴일 (연도별 양력 변환 - 2024~2027) */
+const LUNAR_HOLIDAYS: Record<string, Record<string, string>> = {
+  '2024': {
+    '02-09': '설날 연휴', '02-10': '설날', '02-11': '설날 연휴', '02-12': '대체공휴일',
+    '04-10': '부처님오신날',
+    '09-16': '추석 연휴', '09-17': '추석', '09-18': '추석 연휴',
+  },
+  '2025': {
+    '01-28': '설날 연휴', '01-29': '설날', '01-30': '설날 연휴',
+    '05-05': '부처님오신날',
+    '10-05': '추석 연휴', '10-06': '추석', '10-07': '추석 연휴', '10-08': '대체공휴일',
+  },
+  '2026': {
+    '02-16': '설날 연휴', '02-17': '설날', '02-18': '설날 연휴',
+    '05-24': '부처님오신날',
+    '09-24': '추석 연휴', '09-25': '추석', '09-26': '추석 연휴',
+  },
+  '2027': {
+    '02-06': '설날 연휴', '02-07': '설날', '02-08': '설날 연휴', '02-09': '대체공휴일',
+    '05-13': '부처님오신날',
+    '09-14': '추석 연휴', '09-15': '추석', '09-16': '추석 연휴',
+  },
+};
+
+/** 특정 날짜의 공휴일 이름 반환 (없으면 null) */
+function getHolidayName(year: number, month: number, day: number): string | null {
+  const mmdd = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const fixed = FIXED_HOLIDAYS[mmdd];
+  if (fixed) return fixed;
+  const lunar = LUNAR_HOLIDAYS[String(year)]?.[mmdd];
+  return lunar ?? null;
+}
+
 /** 달력 셀용 금액 축약: 1억 미만은 콤마 표기, 1억 이상은 억 단위 */
 const formatCalendarAmount = (n: number): string => {
   if (n >= 100_000_000) return `${Math.floor(n / 100_000_000)}억`;
@@ -64,6 +111,16 @@ function CalendarView({
   const today = new Date();
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
   const todayDate = today.getDate();
+
+  // 해당 월의 공휴일 맵 (day → name)
+  const holidayMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const name = getHolidayName(year, month, d);
+      if (name) map.set(d, name);
+    }
+    return map;
+  }, [year, month, daysInMonth]);
 
   const cells: (number | null)[] = [
     ...Array(firstDay).fill(null),
@@ -104,6 +161,10 @@ function CalendarView({
             const transfer = day ? dailyTransfer.get(day) ?? 0 : 0;
             const isToday = isCurrentMonth && day === todayDate;
             const isSelected = day === selectedDate;
+            const holiday = day ? holidayMap.get(day) : null;
+            const isSunday = di === 0;
+            const isSaturday = di === 6;
+            const isHolidayOrSunday = !!holiday || isSunday;
 
             return (
               <TouchableOpacity
@@ -128,9 +189,9 @@ function CalendarView({
                       fontSize: 11,
                       color: isToday
                         ? colors.white
-                        : di === 0
+                        : isHolidayOrSunday
                         ? colors.expense
-                        : di === 6
+                        : isSaturday
                         ? '#3B82F6'
                         : day
                         ? colors.textPrimary
@@ -141,6 +202,16 @@ function CalendarView({
                   </Text>
                 </View>
 
+                {/* 공휴일 이름 */}
+                {holiday && (
+                  <Text
+                    className="text-center leading-tight"
+                    style={{ color: colors.expense, fontSize: 7, marginTop: 1 }}
+                    numberOfLines={1}
+                  >
+                    {holiday}
+                  </Text>
+                )}
                 {/* 수입 */}
                 {income > 0 && (
                   <Text
