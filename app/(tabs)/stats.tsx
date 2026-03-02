@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { bookApi } from '../../src/api/book';
+import { assetApi } from '../../src/api/asset';
 import { statisticsApi } from '../../src/api/statistics';
 import colors from '../../constants/colors';
 
@@ -77,6 +78,17 @@ export default function StatsScreen() {
     enabled: !!params,
   });
 
+  // 총 자산: 양수 자산만 합산 (음수 부채 미포함)
+  const { data: assets = [] } = useQuery({
+    queryKey: ['assets', book?.id],
+    queryFn: () => assetApi.getAll(book!.id).then((r) => r.data.data),
+    enabled: !!book?.id,
+  });
+  const totalAssets = useMemo(
+    () => assets.filter((a) => a.balance >= 0).reduce((sum, a) => sum + a.balance, 0),
+    [assets],
+  );
+
   const isLoading = summaryLoading || catLoading;
   const maxBar = Math.max(summary?.totalIncome ?? 0, summary?.totalExpense ?? 0, 1);
 
@@ -143,7 +155,7 @@ export default function StatsScreen() {
             <View className="flex-1 bg-card rounded-2xl border border-border px-4 py-4">
               <Text className="text-xs text-text-muted mb-1">총 자산</Text>
               <Text className="text-lg font-bold text-text-primary">
-                {(summary?.totalAssets ?? 0).toLocaleString()}원
+                {totalAssets.toLocaleString()}원
               </Text>
             </View>
           </View>
