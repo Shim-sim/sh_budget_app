@@ -35,6 +35,16 @@ export interface Book {
   updatedAt: string;
 }
 
+export interface BookWithRole {
+  id: number;
+  name: string;
+  inviteCode: string;
+  ownerId: number;
+  role: 'OWNER' | 'MEMBER';
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BookMember {
   memberId: number;
   nickname: string;
@@ -76,6 +86,25 @@ export interface AssetUpdateRequest {
   name: string;
   balance: number;
   ownerMemberId?: number | null;
+}
+
+// ─── Category ────────────────────────────────────────────────────────────────
+export interface Category {
+  id: number;
+  bookId: number;
+  name: string;
+  color: string | null;
+  icon: string | null;
+  createdAt: string;
+}
+
+export interface CategoryCreateRequest {
+  bookId: number;
+  name: string;
+}
+
+export interface CategoryUpdateRequest {
+  name: string;
 }
 
 // ─── Transaction ──────────────────────────────────────────────────────────────
