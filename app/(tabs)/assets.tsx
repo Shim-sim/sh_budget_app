@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -42,15 +42,27 @@ function AssetFormModal({
   };
 
   const handleBalanceChange = (text: string) => {
-    const digits = text.replace(/[^0-9]/g, '');
-    if (digits === '') {
+    // 마이너스 부호와 숫자만 허용
+    const cleaned = text.replace(/[^0-9-]/g, '');
+    // 마이너스는 맨 앞에만 허용
+    const isNegative = cleaned.startsWith('-');
+    const digits = cleaned.replace(/-/g, '');
+    if (digits === '' && !isNegative) {
       setBalanceStr('');
       return;
     }
-    setBalanceStr(String(parseInt(digits, 10)));
+    if (digits === '' && isNegative) {
+      setBalanceStr('-');
+      return;
+    }
+    const num = parseInt(digits, 10);
+    setBalanceStr(isNegative ? `-${num}` : String(num));
   };
 
-  const displayBalance = balanceStr === '' ? '' : Number(balanceStr).toLocaleString();
+  const displayBalance =
+    balanceStr === '' ? '' :
+    balanceStr === '-' ? '-' :
+    Number(balanceStr).toLocaleString();
 
   const handleSave = async () => {
     if (!name.trim()) { Alert.alert('자산 이름을 입력해주세요'); return; }
@@ -99,15 +111,18 @@ function AssetFormModal({
             {asset ? '현재 잔액' : '초기 잔액'}
           </Text>
           <TextInput
-            className="bg-bg rounded-2xl px-4 py-3.5 text-text-primary text-base border border-border mb-6"
+            className="bg-bg rounded-2xl px-4 py-3.5 text-text-primary text-base border border-border mb-2"
             placeholder="0"
             placeholderTextColor={colors.textMuted}
-            keyboardType="number-pad"
+            keyboardType={Platform.OS === 'web' ? 'default' : 'numbers-and-punctuation'}
             value={displayBalance}
             onChangeText={handleBalanceChange}
             returnKeyType="done"
             onSubmitEditing={handleSave}
           />
+          <Text className="text-xs text-text-muted mb-4">
+            음수 입력 시 부채로 표시되며 총 자산에 포함되지 않아요
+          </Text>
 
           <TouchableOpacity
             className="bg-primary rounded-2xl py-4 items-center"
@@ -145,13 +160,15 @@ export default function AssetsScreen() {
     enabled: !!book?.id,
   });
 
-  const { data: totalData } = useQuery({
-    queryKey: ['assets-total', book?.id],
-    queryFn: () => assetApi.getTotal(book!.id).then((r) => r.data.data),
-    enabled: !!book?.id,
-  });
+  // 양수 자산(자산)과 음수 자산(부채) 분리
+  const positiveAssets = useMemo(() => assets.filter((a) => a.balance >= 0), [assets]);
+  const negativeAssets = useMemo(() => assets.filter((a) => a.balance < 0), [assets]);
 
-  const totalBalance = totalData?.totalBalance ?? 0;
+  // 총 자산: 양수 자산만 합산 (음수 부채 미포함)
+  const totalBalance = useMemo(
+    () => positiveAssets.reduce((sum, a) => sum + a.balance, 0),
+    [positiveAssets],
+  );
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['assets'] });
@@ -223,33 +240,74 @@ export default function AssetsScreen() {
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
         >
-          <View className="bg-card rounded-2xl border border-border overflow-hidden">
-            {assets.map((asset, idx) => (
-              <View key={asset.id}>
-                <TouchableOpacity
-                  className="flex-row items-center justify-between px-4 py-4"
-                  onPress={() => setFormModal({ open: true, asset })}
-                  activeOpacity={0.7}
-                >
-                  <View className="flex-row items-center gap-3">
-                    <View className="w-10 h-10 rounded-xl bg-primary-muted items-center justify-center">
-                      <Ionicons name="wallet-outline" size={18} color={colors.primary} />
+          {/* 양수 자산 (자산) */}
+          {positiveAssets.length > 0 && (
+            <View className="bg-card rounded-2xl border border-border overflow-hidden mb-4">
+              {positiveAssets.map((asset, idx) => (
+                <View key={asset.id}>
+                  <TouchableOpacity
+                    className="flex-row items-center justify-between px-4 py-4"
+                    onPress={() => setFormModal({ open: true, asset })}
+                    activeOpacity={0.7}
+                  >
+                    <View className="flex-row items-center gap-3">
+                      <View className="w-10 h-10 rounded-xl bg-primary-muted items-center justify-center">
+                        <Ionicons name="wallet-outline" size={18} color={colors.primary} />
+                      </View>
+                      <Text className="text-text-primary text-base font-medium">{asset.name}</Text>
                     </View>
-                    <Text className="text-text-primary text-base font-medium">{asset.name}</Text>
-                  </View>
-                  <View className="flex-row items-center gap-3">
-                    <Text className="text-text-primary text-base font-semibold">
-                      {asset.balance.toLocaleString()}원
-                    </Text>
-                    <TouchableOpacity onPress={() => handleDelete(asset)} hitSlop={8}>
-                      <Ionicons name="trash-outline" size={17} color={colors.textMuted} />
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-                {idx < assets.length - 1 && <View className="h-px bg-border mx-4" />}
+                    <View className="flex-row items-center gap-3">
+                      <Text className="text-text-primary text-base font-semibold">
+                        {asset.balance.toLocaleString()}원
+                      </Text>
+                      <TouchableOpacity onPress={() => handleDelete(asset)} hitSlop={8}>
+                        <Ionicons name="trash-outline" size={17} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                  {idx < positiveAssets.length - 1 && <View className="h-px bg-border mx-4" />}
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* 음수 자산 (부채) */}
+          {negativeAssets.length > 0 && (
+            <>
+              <View className="flex-row items-center gap-2 mb-2 px-1">
+                <Ionicons name="warning-outline" size={14} color={colors.expense} />
+                <Text className="text-expense text-xs font-semibold">부채</Text>
+                <Text className="text-text-muted text-xs">총 자산에 미포함</Text>
               </View>
-            ))}
-          </View>
+              <View className="bg-card rounded-2xl border border-border overflow-hidden" style={{ borderColor: '#FECACA' }}>
+                {negativeAssets.map((asset, idx) => (
+                  <View key={asset.id}>
+                    <TouchableOpacity
+                      className="flex-row items-center justify-between px-4 py-4"
+                      onPress={() => setFormModal({ open: true, asset })}
+                      activeOpacity={0.7}
+                    >
+                      <View className="flex-row items-center gap-3">
+                        <View className="w-10 h-10 rounded-xl items-center justify-center" style={{ backgroundColor: '#FEE2E2' }}>
+                          <Ionicons name="trending-down-outline" size={18} color={colors.expense} />
+                        </View>
+                        <Text className="text-text-primary text-base font-medium">{asset.name}</Text>
+                      </View>
+                      <View className="flex-row items-center gap-3">
+                        <Text className="text-base font-semibold" style={{ color: colors.expense }}>
+                          {asset.balance.toLocaleString()}원
+                        </Text>
+                        <TouchableOpacity onPress={() => handleDelete(asset)} hitSlop={8}>
+                          <Ionicons name="trash-outline" size={17} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                    </TouchableOpacity>
+                    {idx < negativeAssets.length - 1 && <View className="h-px bg-border mx-4" />}
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
         </ScrollView>
       )}
 

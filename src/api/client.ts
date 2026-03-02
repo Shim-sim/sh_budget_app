@@ -31,6 +31,7 @@ const BASE_URL = getBaseUrl();
 
 export const SECURE_STORE_KEY = {
   MEMBER_ID: 'member_id',
+  SELECTED_BOOK_ID: 'selected_book_id',
 } as const;
 
 const apiClient = axios.create({

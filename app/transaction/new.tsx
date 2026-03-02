@@ -16,8 +16,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { bookApi } from '../../src/api/book';
 import { assetApi } from '../../src/api/asset';
+import { categoryApi } from '../../src/api/category';
 import { transactionApi } from '../../src/api/transaction';
-import type { Asset, TransactionType } from '../../src/types';
+import type { Asset, Category, TransactionType } from '../../src/types';
 import colors from '../../constants/colors';
 
 // ─── 날짜 유틸 ───────────────────────────────────────────────────────────────
@@ -128,6 +129,57 @@ function AssetPickerModal({
   );
 }
 
+// ─── 카테고리 선택 모달 ──────────────────────────────────────────────────────
+
+function CategoryPickerModal({
+  visible,
+  categories,
+  selectedId,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  categories: Category[];
+  selectedId: number | null;
+  onSelect: (category: Category) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <TouchableOpacity
+        className="flex-1 bg-black/40"
+        activeOpacity={1}
+        onPress={onClose}
+      />
+      <View className="bg-card rounded-t-3xl px-6 pt-4 pb-10" style={{ maxHeight: '50%' }}>
+        <View className="w-10 h-1 bg-border rounded-full self-center mb-4" />
+        <Text className="text-base font-bold text-text-primary mb-4">카테고리 선택</Text>
+        {categories.length === 0 ? (
+          <Text className="text-text-muted text-center py-8">
+            등록된 카테고리가 없어요{'\n'}설정에서 카테고리를 추가해주세요
+          </Text>
+        ) : (
+          <FlatList
+            data={categories}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                className="flex-row items-center justify-between py-3.5 border-b border-border"
+                onPress={() => { onSelect(item); onClose(); }}
+              >
+                <Text className="text-text-primary text-base">{item.name}</Text>
+                {selectedId === item.id && (
+                  <Ionicons name="checkmark" size={18} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            )}
+          />
+        )}
+      </View>
+    </Modal>
+  );
+}
+
 // ─── 메인 화면 ───────────────────────────────────────────────────────────────
 
 const TYPE_LABELS: { type: TransactionType; label: string }[] = [
@@ -150,7 +202,9 @@ export default function NewTransactionScreen() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [fromAsset, setFromAsset] = useState<Asset | null>(null);
   const [toAsset, setToAsset] = useState<Asset | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [assetModal, setAssetModal] = useState<'single' | 'from' | 'to' | null>(null);
+  const [categoryModal, setCategoryModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 가계부 + 자산 조회
@@ -161,6 +215,11 @@ export default function NewTransactionScreen() {
   const { data: assets = [] } = useQuery({
     queryKey: ['assets', book?.id],
     queryFn: () => assetApi.getAll(book!.id).then((r) => r.data.data),
+    enabled: !!book?.id,
+  });
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories', book?.id],
+    queryFn: () => categoryApi.getAll(book!.id).then((r) => r.data.data),
     enabled: !!book?.id,
   });
 
@@ -191,6 +250,10 @@ export default function NewTransactionScreen() {
       Alert.alert('자산을 선택해주세요');
       return;
     }
+    if (txType !== 'TRANSFER' && !selectedCategory) {
+      Alert.alert('카테고리를 선택해주세요');
+      return;
+    }
     if (txType === 'TRANSFER' && (!fromAsset || !toAsset)) {
       Alert.alert('출발/도착 자산을 선택해주세요');
       return;
@@ -205,7 +268,7 @@ export default function NewTransactionScreen() {
         date,
         memo: memo || undefined,
         ...(txType !== 'TRANSFER'
-          ? { assetId: selectedAsset!.id }
+          ? { assetId: selectedAsset!.id, categoryId: selectedCategory!.id }
           : { fromAssetId: fromAsset!.id, toAssetId: toAsset!.id }),
       });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
@@ -245,6 +308,7 @@ export default function NewTransactionScreen() {
               setSelectedAsset(null);
               setFromAsset(null);
               setToAsset(null);
+              setSelectedCategory(null);
             }}
           >
             <Text
@@ -299,6 +363,25 @@ export default function NewTransactionScreen() {
             <View className="flex-row items-center gap-1">
               <Text className={`text-sm ${selectedAsset ? 'text-text-primary font-medium' : 'text-text-muted'}`}>
                 {selectedAsset?.name ?? '선택하세요'}
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* 카테고리 (수입/지출) */}
+        {txType !== 'TRANSFER' && (
+          <TouchableOpacity
+            className="flex-row items-center justify-between px-4 py-3 border-b border-border"
+            onPress={() => setCategoryModal(true)}
+          >
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="pricetag-outline" size={17} color={colors.textSecondary} />
+              <Text className="text-text-secondary text-sm">카테고리</Text>
+            </View>
+            <View className="flex-row items-center gap-1">
+              <Text className={`text-sm ${selectedCategory ? 'text-text-primary font-medium' : 'text-text-muted'}`}>
+                {selectedCategory?.name ?? '선택하세요'}
               </Text>
               <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
             </View>
@@ -391,6 +474,15 @@ export default function NewTransactionScreen() {
           else setSelectedAsset(asset);
         }}
         onClose={() => setAssetModal(null)}
+      />
+
+      {/* 카테고리 선택 모달 */}
+      <CategoryPickerModal
+        visible={categoryModal}
+        categories={categories}
+        selectedId={selectedCategory?.id ?? null}
+        onSelect={(cat) => setSelectedCategory(cat)}
+        onClose={() => setCategoryModal(false)}
       />
     </SafeAreaView>
   );
