@@ -4,6 +4,8 @@ import { Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
+import { pushApi } from '../src/api/push';
+import { subscribeToPush } from '../src/utils/pushNotification';
 
 function useRegisterServiceWorker() {
   useEffect(() => {
@@ -11,7 +13,18 @@ function useRegisterServiceWorker() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
         .register('/service-worker.js')
-        .then((reg) => console.log('SW registered:', reg.scope))
+        .then(async (reg) => {
+          console.log('SW registered:', reg.scope);
+          // 이미 알림 허용 상태면 자동 재구독 (토큰 갱신)
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            try {
+              const vapidRes = await pushApi.getVapidKey();
+              await subscribeToPush(vapidRes.data.data);
+            } catch (e) {
+              console.warn('Auto re-subscribe failed:', e);
+            }
+          }
+        })
         .catch((err) => console.warn('SW registration failed:', err));
     }
   }, []);

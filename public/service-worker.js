@@ -48,3 +48,30 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Push notification 수신
+self.addEventListener('push', (event) => {
+  console.log('[SW] Push received:', event.data?.text());
+  const data = event.data ? event.data.json() : {};
+  const title = data.title || '가계부 알림';
+  const options = {
+    body: data.body || '',
+    icon: '/app-icon-192.png',
+    badge: '/app-icon-192.png',
+    data: { url: '/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// 알림 클릭 시 앱으로 이동
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      if (windowClients.length > 0) {
+        return windowClients[0].focus();
+      }
+      return clients.openWindow(event.notification.data?.url || '/');
+    })
+  );
+});
