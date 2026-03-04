@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
@@ -18,6 +19,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/stores/authStore';
 import { bookApi } from '../../src/api/book';
 import { categoryApi } from '../../src/api/category';
+import { pushApi } from '../../src/api/push';
+import { subscribeToPush, unsubscribeFromPush, isSubscribed } from '../../src/utils/pushNotification';
 import type { Category } from '../../src/types';
 import colors from '../../constants/colors';
 
@@ -293,6 +296,75 @@ function CategoryManageSection({ bookId }: { bookId: number }) {
   );
 }
 
+// ─── 알림 설정 섹션 ──────────────────────────────────────────────────────────
+
+function NotificationToggleSection() {
+  const [enabled, setEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    isSubscribed().then((val) => {
+      setEnabled(val);
+      setLoading(false);
+    });
+  }, []);
+
+  const handleToggle = async (value: boolean) => {
+    setLoading(true);
+    try {
+      if (value) {
+        const vapidRes = await pushApi.getVapidKey();
+        const success = await subscribeToPush(vapidRes.data.data);
+        setEnabled(success);
+        if (!success) {
+          window.alert('알림 권한이 거부되었습니다. 브라우저 설정에서 알림을 허용해주세요.');
+        }
+      } else {
+        await unsubscribeFromPush();
+        setEnabled(false);
+      }
+    } catch (e) {
+      console.warn('Notification toggle failed:', e);
+      window.alert('알림 설정 변경에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <View className="bg-card rounded-2xl overflow-hidden border border-border mb-4">
+      <View className="px-4 pt-4 pb-2">
+        <Text className="text-xs font-semibold text-text-muted tracking-wide">
+          알림 설정
+        </Text>
+      </View>
+      <View className="flex-row items-center justify-between px-4 py-3">
+        <View className="flex-row items-center gap-3 flex-1">
+          <View className="w-7 h-7 rounded-lg bg-primary-muted items-center justify-center">
+            <Ionicons name="notifications-outline" size={14} color={colors.primary} />
+          </View>
+          <View className="flex-1">
+            <Text className="text-text-primary text-sm font-medium">푸시 알림</Text>
+            <Text className="text-text-muted text-xs mt-0.5">
+              거래/자산 등록 시 알림을 받습니다
+            </Text>
+          </View>
+        </View>
+        {loading ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Switch
+            value={enabled}
+            onValueChange={handleToggle}
+            trackColor={{ false: colors.border, true: colors.primaryLight }}
+            thumbColor={enabled ? colors.primary : colors.textMuted}
+          />
+        )}
+      </View>
+    </View>
+  );
+}
+
 // ─── 설정 화면 ───────────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
@@ -508,6 +580,9 @@ export default function SettingsScreen() {
 
         {/* 카테고리 관리 섹션 */}
         {book && <CategoryManageSection bookId={book.id} />}
+
+        {/* 알림 설정 섹션 (웹 전용) */}
+        {Platform.OS === 'web' && <NotificationToggleSection />}
 
         {/* 가계부 참여 섹션 */}
         <View className="bg-card rounded-2xl overflow-hidden border border-border mb-4">
