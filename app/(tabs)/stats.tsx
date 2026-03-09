@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,8 @@ import { bookApi } from '../../src/api/book';
 import { assetApi } from '../../src/api/asset';
 import { statisticsApi } from '../../src/api/statistics';
 import colors from '../../constants/colors';
+import { usePullToRefresh } from '../../src/hooks/usePullToRefresh';
+import { PullIndicator } from '../../src/components/PullIndicator';
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
 
@@ -50,14 +52,10 @@ function BarRow({ label, amount, max, color }: { label: string; amount: number; 
 
 export default function StatsScreen() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await queryClient.invalidateQueries();
-    setRefreshing(false);
-  }, [queryClient]);
+  const { pullDistance, refreshing, pulling, handlers } = usePullToRefresh(
+    useCallback(async () => { await queryClient.invalidateQueries(); }, [queryClient])
+  );
 
   const { data: book } = useQuery({
     queryKey: ['book'],
@@ -101,7 +99,8 @@ export default function StatsScreen() {
   const maxBar = Math.max(summary?.totalIncome ?? 0, summary?.totalExpense ?? 0, 1);
 
   return (
-    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top']} {...handlers}>
+      <PullIndicator pullDistance={pullDistance} refreshing={refreshing} pulling={pulling} />
       {/* 헤더 + 월 선택 */}
       <View className="px-6 pt-2 pb-2">
         <Text className="text-2xl font-bold text-text-primary mb-3">통계</Text>
@@ -126,9 +125,6 @@ export default function StatsScreen() {
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-          }
         >
           {/* 수입 / 지출 카드 */}
           <View className="flex-row gap-3 mt-3 mb-4">

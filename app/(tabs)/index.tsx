@@ -5,7 +5,6 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,6 +14,8 @@ import { bookApi } from '../../src/api/book';
 import { transactionApi } from '../../src/api/transaction';
 import type { Transaction } from '../../src/types';
 import colors from '../../constants/colors';
+import { usePullToRefresh } from '../../src/hooks/usePullToRefresh';
+import { PullIndicator } from '../../src/components/PullIndicator';
 
 // ─── 유틸 ───────────────────────────────────────────────────────────────────
 
@@ -299,13 +300,9 @@ export default function HomeScreen() {
   const [selectedMonth, setSelectedMonth] = useState(() => formatMonth(new Date()));
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await queryClient.invalidateQueries();
-    setRefreshing(false);
-  }, [queryClient]);
+  const { pullDistance, refreshing, pulling, handlers } = usePullToRefresh(
+    useCallback(async () => { await queryClient.invalidateQueries(); }, [queryClient])
+  );
 
   const { data: book } = useQuery({
     queryKey: ['book'],
@@ -403,17 +400,15 @@ export default function HomeScreen() {
   const net = summary.income - summary.expense;
 
   return (
-    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top']} {...handlers}>
       <FlatList
         data={grouped}
         keyExtractor={(item) => item.date}
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
         ListHeaderComponent={
           <>
+            <PullIndicator pullDistance={pullDistance} refreshing={refreshing} pulling={pulling} />
             {/* 월 선택 */}
             <View className="flex-row items-center justify-between px-6 pt-2 pb-3">
               <TouchableOpacity onPress={() => changeMonth(-1)} hitSlop={12}>

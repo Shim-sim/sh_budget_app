@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -21,6 +20,8 @@ import { assetApi } from '../../src/api/asset';
 import { transactionApi } from '../../src/api/transaction';
 import type { Asset, Transaction } from '../../src/types';
 import colors from '../../constants/colors';
+import { usePullToRefresh } from '../../src/hooks/usePullToRefresh';
+import { PullIndicator } from '../../src/components/PullIndicator';
 
 const formatMonth = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -354,13 +355,9 @@ export default function AssetsScreen() {
     asset: null,
   });
   const [detailAsset, setDetailAsset] = useState<Asset | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await queryClient.invalidateQueries();
-    setRefreshing(false);
-  }, [queryClient]);
+  const { pullDistance, refreshing, pulling, handlers } = usePullToRefresh(
+    useCallback(async () => { await queryClient.invalidateQueries(); }, [queryClient])
+  );
 
   const { data: book } = useQuery({
     queryKey: ['book'],
@@ -412,7 +409,8 @@ export default function AssetsScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top']} {...handlers}>
+      <PullIndicator pullDistance={pullDistance} refreshing={refreshing} pulling={pulling} />
       {/* 헤더 */}
       <View className="flex-row items-center justify-between px-6 pt-2 pb-4">
         <Text className="text-2xl font-bold text-text-primary">자산</Text>
@@ -452,9 +450,6 @@ export default function AssetsScreen() {
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-          }
         >
           {/* 양수 자산 (자산) */}
           {positiveAssets.length > 0 && (
