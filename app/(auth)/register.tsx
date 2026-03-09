@@ -12,7 +12,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { memberApi } from '../../src/api/member';
+import { authApi } from '../../src/api/auth';
 import { useAuthStore } from '../../src/stores/authStore';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
@@ -20,10 +20,18 @@ import colors from '../../constants/colors';
 
 const schema = z.object({
   email: z.string().email('올바른 이메일 형식이 아니에요'),
+  password: z
+    .string()
+    .min(8, '비밀번호는 8자 이상이어야 해요')
+    .max(50, '비밀번호는 50자 이하여야 해요'),
+  passwordConfirm: z.string().min(1, '비밀번호 확인을 입력해주세요'),
   nickname: z
     .string()
     .min(2, '닉네임은 2자 이상이어야 해요')
     .max(20, '닉네임은 20자 이하여야 해요'),
+}).refine((data) => data.password === data.passwordConfirm, {
+  message: '비밀번호가 일치하지 않아요',
+  path: ['passwordConfirm'],
 });
 
 type FormData = z.infer<typeof schema>;
@@ -34,6 +42,8 @@ export default function RegisterScreen() {
   const { login } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
   const {
     control,
@@ -43,6 +53,8 @@ export default function RegisterScreen() {
     resolver: zodResolver(schema),
     defaultValues: {
       email: emailParam ?? '',
+      password: '',
+      passwordConfirm: '',
       nickname: '',
     },
   });
@@ -51,8 +63,13 @@ export default function RegisterScreen() {
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const res = await memberApi.create({ email: data.email, nickname: data.nickname });
-      await login(res.data.data.id);
+      const res = await authApi.register({
+        email: data.email,
+        password: data.password,
+        nickname: data.nickname,
+      });
+      const { memberId, accessToken, refreshToken } = res.data.data;
+      await login(memberId, accessToken, refreshToken);
       router.replace('/(tabs)/');
     } catch (err: any) {
       if (err.status === 409) {
@@ -89,13 +106,13 @@ export default function RegisterScreen() {
           <View className="mb-10">
             <Text className="text-3xl font-bold text-text-primary">계정 만들기</Text>
             <Text className="text-base text-text-secondary mt-2">
-              닉네임을 설정하면 바로 시작할 수 있어요
+              이메일, 비밀번호, 닉네임을 설정해주세요
             </Text>
           </View>
 
           {/* 폼 */}
           <View className="gap-4">
-            {/* 이메일 (미리 채워짐, 수정 가능) */}
+            {/* 이메일 */}
             <Controller
               control={control}
               name="email"
@@ -106,6 +123,7 @@ export default function RegisterScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  returnKeyType="next"
                   value={value}
                   onChangeText={(text) => {
                     setErrorMsg('');
@@ -113,6 +131,74 @@ export default function RegisterScreen() {
                   }}
                   error={errors.email?.message}
                 />
+              )}
+            />
+
+            {/* 비밀번호 */}
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, value } }) => (
+                <View>
+                  <Input
+                    label="비밀번호"
+                    placeholder="8자 이상 입력해주세요"
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    value={value}
+                    onChangeText={(text) => {
+                      setErrorMsg('');
+                      onChange(text);
+                    }}
+                    error={errors.password?.message}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-9"
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={22}
+                      color={colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+
+            {/* 비밀번호 확인 */}
+            <Controller
+              control={control}
+              name="passwordConfirm"
+              render={({ field: { onChange, value } }) => (
+                <View>
+                  <Input
+                    label="비밀번호 확인"
+                    placeholder="비밀번호를 다시 입력해주세요"
+                    secureTextEntry={!showPasswordConfirm}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    value={value}
+                    onChangeText={(text) => {
+                      setErrorMsg('');
+                      onChange(text);
+                    }}
+                    error={errors.passwordConfirm?.message}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPasswordConfirm(!showPasswordConfirm)}
+                    className="absolute right-4 top-9"
+                  >
+                    <Ionicons
+                      name={showPasswordConfirm ? 'eye-off-outline' : 'eye-outline'}
+                      size={22}
+                      color={colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
               )}
             />
 

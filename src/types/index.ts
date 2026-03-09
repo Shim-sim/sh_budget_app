@@ -20,6 +20,28 @@ export interface MemberCreateRequest {
   nickname: string;
 }
 
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  nickname: string;
+}
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  memberId: number;
+}
+
+export interface RefreshRequest {
+  refreshToken: string;
+}
+
 export interface MemberUpdateRequest {
   nickname: string;
   profileImageUrl?: string | null;
@@ -163,6 +185,38 @@ export interface TransactionListParams {
   bookId: number;
   month?: string;       // YYYY-MM
   type?: TransactionType;
+}
+
+// ─── Recurring Transaction ────────────────────────────────────────────────────
+export interface RecurringTransaction {
+  id: number;
+  bookId: number;
+  type: TransactionType;
+  amount: number;
+  dayOfMonth: number;
+  memo: string | null;
+  assetId: number | null;
+  assetName: string | null;
+  categoryId: number | null;
+  categoryName: string | null;
+  fromAssetId: number | null;
+  fromAssetName: string | null;
+  toAssetId: number | null;
+  toAssetName: string | null;
+  createdBy: number;
+  createdByNickname: string | null;
+}
+
+export interface RecurringCreateRequest {
+  bookId: number;
+  type: TransactionType;
+  amount: number;
+  dayOfMonth: number;
+  memo?: string;
+  assetId?: number;
+  categoryId?: number;
+  fromAssetId?: number;
+  toAssetId?: number;
 }
 
 // ─── Statistics ───────────────────────────────────────────────────────────────

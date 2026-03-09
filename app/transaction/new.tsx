@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -18,6 +19,7 @@ import { bookApi } from '../../src/api/book';
 import { assetApi } from '../../src/api/asset';
 import { categoryApi } from '../../src/api/category';
 import { transactionApi } from '../../src/api/transaction';
+import { recurringApi } from '../../src/api/recurring';
 import type { Asset, Category, TransactionType } from '../../src/types';
 import colors from '../../constants/colors';
 
@@ -206,6 +208,8 @@ export default function NewTransactionScreen() {
   const [assetModal, setAssetModal] = useState<'single' | 'from' | 'to' | null>(null);
   const [categoryModal, setCategoryModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringDay, setRecurringDay] = useState(() => new Date().getDate());
 
   // 가계부 + 자산 조회
   const { data: book } = useQuery({
@@ -271,9 +275,27 @@ export default function NewTransactionScreen() {
           ? { assetId: selectedAsset!.id, categoryId: selectedCategory!.id }
           : { fromAssetId: fromAsset!.id, toAssetId: toAsset!.id }),
       });
+      // 반복 거래 등록
+      if (isRecurring) {
+        try {
+          await recurringApi.create({
+            bookId: book.id,
+            type: txType,
+            amount,
+            dayOfMonth: recurringDay,
+            memo: memo || undefined,
+            ...(txType !== 'TRANSFER'
+              ? { assetId: selectedAsset!.id, categoryId: selectedCategory!.id }
+              : { fromAssetId: fromAsset!.id, toAssetId: toAsset!.id }),
+          });
+        } catch (e: any) {
+          console.warn('반복 거래 등록 실패:', e.message);
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['assets'] });
       queryClient.invalidateQueries({ queryKey: ['assets-total'] });
+      queryClient.invalidateQueries({ queryKey: ['recurring'] });
       router.back();
     } catch (err: any) {
       Alert.alert('등록 실패', err.message ?? '다시 시도해주세요.');
@@ -425,7 +447,7 @@ export default function NewTransactionScreen() {
         )}
 
         {/* 메모 */}
-        <View className="flex-row items-center px-4 py-3">
+        <View className="flex-row items-center px-4 py-3 border-b border-border">
           <Ionicons name="pencil-outline" size={17} color={colors.textSecondary} />
           <TextInput
             className="flex-1 ml-2 text-sm text-text-primary"
@@ -435,6 +457,42 @@ export default function NewTransactionScreen() {
             onChangeText={setMemo}
             returnKeyType="done"
           />
+        </View>
+
+        {/* 반복 설정 */}
+        <View className="px-4 py-3">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="repeat-outline" size={17} color={colors.textSecondary} />
+              <Text className="text-text-secondary text-sm">반복 설정</Text>
+            </View>
+            <Switch
+              value={isRecurring}
+              onValueChange={setIsRecurring}
+              trackColor={{ false: colors.border, true: colors.primaryLight }}
+              thumbColor={isRecurring ? colors.primary : colors.textMuted}
+            />
+          </View>
+          {isRecurring && (
+            <View className="flex-row items-center mt-3 ml-6">
+              <Text className="text-text-secondary text-sm">매월</Text>
+              <View className="mx-2 bg-bg rounded-lg border border-border px-2">
+                <TextInput
+                  className="text-center text-sm text-text-primary py-1"
+                  style={{ width: 36 }}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  value={String(recurringDay)}
+                  onChangeText={(t) => {
+                    const num = parseInt(t, 10);
+                    if (!t) setRecurringDay(1);
+                    else if (num >= 1 && num <= 31) setRecurringDay(num);
+                  }}
+                />
+              </View>
+              <Text className="text-text-secondary text-sm">일 반복</Text>
+            </View>
+          )}
         </View>
       </View>
 

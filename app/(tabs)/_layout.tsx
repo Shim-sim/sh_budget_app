@@ -1,6 +1,7 @@
-import { Tabs, useRouter } from 'expo-router';
-import { TouchableOpacity, View } from 'react-native';
+import { Tabs, useRouter, Redirect } from 'expo-router';
+import { TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuthStore } from '../../src/stores/authStore';
 import colors from '../../constants/colors';
 
 function FABButton({ onPress }: { onPress: () => void }) {
@@ -27,6 +28,20 @@ function TabIcon({ name, focused }: { name: keyof typeof Ionicons.glyphMap; focu
 
 export default function TabLayout() {
   const router = useRouter();
+  const { isLoggedIn, isLoading } = useAuthStore();
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-bg">
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  // 비로그인 상태면 로그인 화면으로 리다이렉트
+  if (!isLoggedIn) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
   return (
     <Tabs

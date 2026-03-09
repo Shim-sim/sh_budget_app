@@ -19,9 +19,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/stores/authStore';
 import { bookApi } from '../../src/api/book';
 import { categoryApi } from '../../src/api/category';
+import { recurringApi } from '../../src/api/recurring';
 import { pushApi } from '../../src/api/push';
 import { subscribeToPush, unsubscribeFromPush, isSubscribed } from '../../src/utils/pushNotification';
-import type { Category } from '../../src/types';
+import type { Category, RecurringTransaction } from '../../src/types';
 import colors from '../../constants/colors';
 
 // ─── 초대 코드 입력 모달 ──────────────────────────────────────────────────────
@@ -291,6 +292,113 @@ function CategoryManageSection({ bookId }: { bookId: number }) {
             </TouchableOpacity>
           )}
         </>
+      )}
+    </View>
+  );
+}
+
+// ─── 반복 거래 관리 섹션 ──────────────────────────────────────────────────────
+
+function RecurringManageSection({ bookId }: { bookId: number }) {
+  const queryClient = useQueryClient();
+
+  const showAlert = (title: string, msg: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}\n${msg}`);
+    } else {
+      Alert.alert(title, msg);
+    }
+  };
+
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ['recurring', bookId],
+    queryFn: () => recurringApi.getAll(bookId).then((r) => r.data.data),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => recurringApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recurring', bookId] });
+    },
+    onError: (err: any) => showAlert('삭제 실패', err.message ?? '다시 시도해주세요.'),
+  });
+
+  const handleDelete = (item: RecurringTransaction) => {
+    const label = item.memo || `${item.amount.toLocaleString()}원`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(`"${label}" 반복 거래를 삭제하시겠어요?`)) {
+        deleteMutation.mutate(item.id);
+      }
+    } else {
+      Alert.alert('반복 거래 삭제', `"${label}" 반복 거래를 삭제하시겠어요?`, [
+        { text: '취소', style: 'cancel' },
+        { text: '삭제', style: 'destructive', onPress: () => deleteMutation.mutate(item.id) },
+      ]);
+    }
+  };
+
+  const typeLabel = (type: string) => {
+    switch (type) {
+      case 'INCOME': return '수입';
+      case 'EXPENSE': return '지출';
+      case 'TRANSFER': return '이체';
+      default: return type;
+    }
+  };
+
+  const typeColor = (type: string) => {
+    switch (type) {
+      case 'INCOME': return colors.income;
+      case 'EXPENSE': return colors.expense;
+      default: return colors.transfer;
+    }
+  };
+
+  return (
+    <View className="bg-card rounded-2xl overflow-hidden border border-border mb-4">
+      <View className="px-4 pt-4 pb-2">
+        <Text className="text-xs font-semibold text-text-muted tracking-wide">
+          반복 거래 관리
+        </Text>
+      </View>
+
+      {isLoading ? (
+        <View className="py-6 items-center">
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : items.length === 0 ? (
+        <View className="py-4 items-center">
+          <Text className="text-text-muted text-sm">등록된 반복 거래가 없어요</Text>
+        </View>
+      ) : (
+        items.map((item, idx) => (
+          <View key={item.id}>
+            <View className="flex-row items-center px-4 py-2.5">
+              <View className="w-7 h-7 rounded-lg bg-primary-muted items-center justify-center mr-3">
+                <Ionicons name="repeat-outline" size={14} color={typeColor(item.type)} />
+              </View>
+              <View className="flex-1">
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-text-primary text-sm font-medium">
+                    {item.memo || (item.type === 'TRANSFER'
+                      ? `${item.fromAssetName} → ${item.toAssetName}`
+                      : item.assetName)}
+                  </Text>
+                  <Text className="text-xs px-1.5 py-0.5 rounded" style={{ color: typeColor(item.type), backgroundColor: typeColor(item.type) + '18' }}>
+                    {typeLabel(item.type)}
+                  </Text>
+                </View>
+                <Text className="text-text-muted text-xs mt-0.5">
+                  매월 {item.dayOfMonth}일 · {item.amount.toLocaleString()}원
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => handleDelete(item)} hitSlop={8}>
+                <Ionicons name="trash-outline" size={16} color={colors.expense} />
+              </TouchableOpacity>
+            </View>
+            {idx < items.length - 1 && <View className="h-px bg-border mx-4" />}
+          </View>
+        ))
       )}
     </View>
   );
@@ -580,6 +688,9 @@ export default function SettingsScreen() {
 
         {/* 카테고리 관리 섹션 */}
         {book && <CategoryManageSection bookId={book.id} />}
+
+        {/* 반복 거래 관리 섹션 */}
+        {book && <RecurringManageSection bookId={book.id} />}
 
         {/* 알림 설정 섹션 (웹 전용) */}
         {Platform.OS === 'web' && <NotificationToggleSection />}

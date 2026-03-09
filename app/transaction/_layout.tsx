@@ -3,7 +3,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { useAuthStore } from '../../src/stores/authStore';
 import colors from '../../constants/colors';
 
-export default function AuthLayout() {
+export default function TransactionLayout() {
   const { isLoggedIn, isLoading } = useAuthStore();
 
   if (isLoading) {
@@ -14,9 +14,8 @@ export default function AuthLayout() {
     );
   }
 
-  // 로그인 상태면 서비스 홈으로 리다이렉트
-  if (isLoggedIn) {
-    return <Redirect href="/(tabs)/" />;
+  if (!isLoggedIn) {
+    return <Redirect href="/(auth)/login" />;
   }
 
   return <Stack screenOptions={{ headerShown: false }} />;

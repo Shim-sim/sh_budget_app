@@ -20,9 +20,6 @@ function getBaseUrl() {
   if (Platform.OS !== 'web') {
     return `http://${DEV_MACHINE_IP}:8080`;
   }
-  // 웹: 브라우저의 hostname 기반으로 자동 결정
-  // PC에서 localhost로 접속 → localhost:8080
-  // 폰에서 192.168.x.x로 접속 → 192.168.x.x:8080
   const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
   return `http://${hostname}:8080`;
 }
@@ -32,6 +29,8 @@ const BASE_URL = getBaseUrl();
 export const SECURE_STORE_KEY = {
   MEMBER_ID: 'member_id',
   SELECTED_BOOK_ID: 'selected_book_id',
+  ACCESS_TOKEN: 'access_token',
+  REFRESH_TOKEN: 'refresh_token',
 } as const;
 
 const apiClient = axios.create({
@@ -42,21 +41,88 @@ const apiClient = axios.create({
   },
 });
 
-// 요청마다 storage에서 memberId 꺼내서 헤더에 주입 + API Key 추가
+// 요청마다 Bearer 토큰 주입 (없으면 기존 X-Member-Id 폴백)
 apiClient.interceptors.request.use(async (config) => {
-  const memberId = await storage.getItem(SECURE_STORE_KEY.MEMBER_ID);
-  if (memberId) {
-    config.headers['X-Member-Id'] = memberId;
+  const accessToken = await storage.getItem(SECURE_STORE_KEY.ACCESS_TOKEN);
+  if (accessToken) {
+    config.headers['Authorization'] = `Bearer ${accessToken}`;
+  } else {
+    // JWT 미전환 기간 폴백: 기존 memberId 헤더
+    const memberId = await storage.getItem(SECURE_STORE_KEY.MEMBER_ID);
+    if (memberId) {
+      config.headers['X-Member-Id'] = memberId;
+    }
   }
   config.headers['X-Api-Key'] = API_KEY;
   return config;
 });
 
-// 응답 에러 공통 처리
+// 토큰 갱신 중복 방지
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+function onRefreshed(token: string) {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
+}
+
+function addRefreshSubscriber(cb: (token: string) => void) {
+  refreshSubscribers.push(cb);
+}
+
+// 응답 에러 처리 + 401 시 자동 토큰 갱신
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
     const status = error.response?.status;
+
+    // 401이고, 이미 재시도한 요청이 아니며, refresh 요청 자체가 아닌 경우
+    if (status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/api/auth/')) {
+      originalRequest._retry = true;
+
+      if (!isRefreshing) {
+        isRefreshing = true;
+        try {
+          const refreshToken = await storage.getItem(SECURE_STORE_KEY.REFRESH_TOKEN);
+          if (!refreshToken) {
+            return Promise.reject({ status, message: '로그인이 필요합니다.' });
+          }
+
+          const res = await axios.post(`${BASE_URL}/api/auth/refresh`, { refreshToken }, {
+            headers: { 'Content-Type': 'application/json', 'X-Api-Key': API_KEY },
+          });
+
+          const tokens = res.data.data;
+          await storage.setItem(SECURE_STORE_KEY.ACCESS_TOKEN, tokens.accessToken);
+          await storage.setItem(SECURE_STORE_KEY.REFRESH_TOKEN, tokens.refreshToken);
+
+          isRefreshing = false;
+          onRefreshed(tokens.accessToken);
+
+          originalRequest.headers['Authorization'] = `Bearer ${tokens.accessToken}`;
+          return apiClient(originalRequest);
+        } catch {
+          isRefreshing = false;
+          refreshSubscribers = [];
+          // refresh 실패 → 로그아웃 처리 (스토리지 클리어)
+          await storage.deleteItem(SECURE_STORE_KEY.ACCESS_TOKEN);
+          await storage.deleteItem(SECURE_STORE_KEY.REFRESH_TOKEN);
+          await storage.deleteItem(SECURE_STORE_KEY.MEMBER_ID);
+          await storage.deleteItem(SECURE_STORE_KEY.SELECTED_BOOK_ID);
+          return Promise.reject({ status: 401, message: '세션이 만료되었습니다. 다시 로그인해주세요.' });
+        }
+      }
+
+      // 이미 갱신 중이면 큐에 등록
+      return new Promise((resolve) => {
+        addRefreshSubscriber((newToken: string) => {
+          originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+          resolve(apiClient(originalRequest));
+        });
+      });
+    }
+
     const message = error.response?.data?.message ?? '알 수 없는 오류가 발생했습니다.';
     return Promise.reject({ status, message });
   }
