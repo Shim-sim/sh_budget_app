@@ -255,7 +255,7 @@ function CalendarView({
 
 // ─── 거래 아이템 ─────────────────────────────────────────────────────────────
 
-function TransactionItem({ tx, isLast }: { tx: Transaction; isLast: boolean }) {
+function TransactionItem({ tx, isLast, onPress }: { tx: Transaction; isLast: boolean; onPress: () => void }) {
   const iconName =
     tx.type === 'INCOME' ? 'arrow-down' :
     tx.type === 'EXPENSE' ? 'arrow-up' : 'swap-horizontal';
@@ -274,7 +274,11 @@ function TransactionItem({ tx, isLast }: { tx: Transaction; isLast: boolean }) {
     tx.memo || (tx.type === 'TRANSFER' ? '이체' : tx.type === 'INCOME' ? '수입' : '지출');
 
   return (
-    <View className={`flex-row items-center px-4 py-3.5 ${!isLast ? 'border-b border-border' : ''}`}>
+    <TouchableOpacity
+      className={`flex-row items-center px-4 py-3.5 ${!isLast ? 'border-b border-border' : ''}`}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
       <View
         className="w-9 h-9 rounded-xl items-center justify-center mr-3"
         style={{ backgroundColor: iconBg }}
@@ -288,7 +292,7 @@ function TransactionItem({ tx, isLast }: { tx: Transaction; isLast: boolean }) {
       <Text className="text-sm font-semibold" style={{ color: iconColor }}>
         {amountPrefix}{formatAmount(tx.amount)}원
       </Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -531,7 +535,12 @@ export default function HomeScreen() {
               </Text>
               <View className="bg-card rounded-2xl overflow-hidden border border-border">
                 {item.items.map((tx, idx) => (
-                  <TransactionItem key={tx.id} tx={tx} isLast={idx === item.items.length - 1} />
+                  <TransactionItem
+                    key={tx.id}
+                    tx={tx}
+                    isLast={idx === item.items.length - 1}
+                    onPress={() => router.push(`/transaction/edit?id=${tx.id}&bookId=${tx.bookId}`)}
+                  />
                 ))}
               </View>
             </View>

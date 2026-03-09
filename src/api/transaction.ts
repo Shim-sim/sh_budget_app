@@ -14,12 +14,12 @@ export const transactionApi = {
   getAll: (params: TransactionListParams) =>
     apiClient.get<ApiResult<Transaction[]>>('/api/transactions', { params }),
 
-  getById: (id: number) =>
-    apiClient.get<ApiResult<Transaction>>(`/api/transactions/${id}`),
+  getById: (id: number, bookId: number) =>
+    apiClient.get<ApiResult<Transaction>>(`/api/transactions/${id}`, { params: { bookId } }),
 
-  update: (id: number, data: TransactionUpdateRequest) =>
-    apiClient.put<ApiResult<Transaction>>(`/api/transactions/${id}`, data),
+  update: (id: number, bookId: number, data: TransactionUpdateRequest) =>
+    apiClient.put<ApiResult<Transaction>>(`/api/transactions/${id}`, data, { params: { bookId } }),
 
-  delete: (id: number) =>
-    apiClient.delete<ApiResult<null>>(`/api/transactions/${id}`),
+  delete: (id: number, bookId: number) =>
+    apiClient.delete<ApiResult<null>>(`/api/transactions/${id}`, { params: { bookId } }),
 };
