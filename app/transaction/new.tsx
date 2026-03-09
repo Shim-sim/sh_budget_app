@@ -50,9 +50,9 @@ const KEYS = [
   ['00', '0', '⌫'],
 ];
 
-function Numpad({ onPress }: { onPress: (key: string) => void }) {
+function Numpad({ onPress, disabled }: { onPress: (key: string) => void; disabled?: boolean }) {
   return (
-    <View>
+    <View style={{ opacity: disabled ? 0.3 : 1 }}>
       {KEYS.map((row, ri) => (
         <View key={ri} className="flex-row">
           {row.map((key) => (
@@ -60,13 +60,14 @@ function Numpad({ onPress }: { onPress: (key: string) => void }) {
               key={key}
               className="flex-1 items-center justify-center py-4 border-t border-r border-border bg-card"
               style={{ borderTopWidth: ri === 0 ? 1 : 0, borderRightWidth: 1 }}
-              onPress={() => onPress(key)}
-              activeOpacity={0.6}
+              onPress={() => !disabled && onPress(key)}
+              activeOpacity={disabled ? 1 : 0.6}
+              disabled={disabled}
             >
               {key === '⌫' ? (
-                <Ionicons name="backspace-outline" size={20} color={colors.textPrimary} />
+                <Ionicons name="backspace-outline" size={20} color={disabled ? colors.textMuted : colors.textPrimary} />
               ) : (
-                <Text className="text-text-primary text-xl font-medium">{key}</Text>
+                <Text className={`text-xl font-medium ${disabled ? 'text-text-muted' : 'text-text-primary'}`}>{key}</Text>
               )}
             </TouchableOpacity>
           ))}
@@ -228,6 +229,16 @@ export default function NewTransactionScreen() {
     enabled: !!book?.id,
   });
 
+  // 자산 선택 여부에 따른 키패드 활성화
+  const isNumpadEnabled =
+    txType === 'TRANSFER' ? !!fromAsset : !!selectedAsset;
+
+  // 금액 상한: 지출=자산잔액, 이체=출발자산잔액, 수입=무제한
+  const maxAmount =
+    txType === 'EXPENSE' && selectedAsset ? selectedAsset.balance :
+    txType === 'TRANSFER' && fromAsset ? fromAsset.balance :
+    Infinity;
+
   // 키패드 입력 처리
   const handleKey = (key: string) => {
     setAmountStr((prev) => {
@@ -238,6 +249,8 @@ export default function NewTransactionScreen() {
       if (prev === '0') return key === '00' ? '0' : key;
       const next = prev + key;
       if (next.length > 10) return prev;
+      const nextNum = parseInt(next, 10) || 0;
+      if (maxAmount !== Infinity && nextNum > maxAmount) return prev;
       return next;
     });
   };
@@ -348,10 +361,18 @@ export default function NewTransactionScreen() {
         {/* 금액 표시 */}
         <View className="items-center py-4 mb-2">
           <Text className="text-text-muted text-sm mb-1">금액</Text>
-          <Text className="text-5xl font-bold" style={{ color: typeColor }}>
+          <Text className="text-5xl font-bold" style={{ color: isNumpadEnabled ? typeColor : colors.textMuted }}>
             {amount.toLocaleString()}
           </Text>
           <Text className="text-text-secondary text-lg mt-1">원</Text>
+          {!isNumpadEnabled && (
+            <Text className="text-text-muted text-xs mt-1">자산을 먼저 선택해주세요</Text>
+          )}
+          {isNumpadEnabled && maxAmount !== Infinity && (
+            <Text className="text-text-muted text-xs mt-1">
+              최대 {maxAmount.toLocaleString()}원
+            </Text>
+          )}
         </View>
 
         {/* 날짜 / 자산 / 메모 */}
@@ -499,7 +520,7 @@ export default function NewTransactionScreen() {
           </View>
         </View>
         {/* 키패드 */}
-        <Numpad onPress={handleKey} />
+        <Numpad onPress={handleKey} disabled={!isNumpadEnabled} />
       </ScrollView>
 
       {/* 완료 버튼 (하단 고정) */}
@@ -530,9 +551,15 @@ export default function NewTransactionScreen() {
           selectedAsset?.id ?? null
         }
         onSelect={(asset) => {
-          if (assetModal === 'from') setFromAsset(asset);
-          else if (assetModal === 'to') setToAsset(asset);
-          else setSelectedAsset(asset);
+          if (assetModal === 'from') {
+            setFromAsset(asset);
+            if (txType === 'TRANSFER' && amount > asset.balance) setAmountStr('0');
+          } else if (assetModal === 'to') {
+            setToAsset(asset);
+          } else {
+            setSelectedAsset(asset);
+            if (txType === 'EXPENSE' && amount > asset.balance) setAmountStr('0');
+          }
         }}
         onClose={() => setAssetModal(null)}
       />
