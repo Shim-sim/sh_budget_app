@@ -1,12 +1,18 @@
 const CACHE_NAME = 'budget-app-v1';
 const PRECACHE_URLS = ['/', '/manifest.json'];
 
-// Install: precache app shell
+// Install: precache app shell (새 버전 대기 - skipWaiting은 메시지로 제어)
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
   );
-  self.skipWaiting();
+});
+
+// 클라이언트에서 SKIP_WAITING 메시지 수신 시 즉시 활성화
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Activate: clean old caches
