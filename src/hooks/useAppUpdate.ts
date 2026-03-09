@@ -18,6 +18,7 @@ export function useAppUpdate() {
     if (!('serviceWorker' in navigator)) return;
 
     let intervalId: ReturnType<typeof setInterval>;
+    const cleanups: (() => void)[] = [];
 
     const showLocalUpdateNotification = () => {
       if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
@@ -57,6 +58,15 @@ export function useAppUpdate() {
       intervalId = setInterval(() => {
         registration.update();
       }, UPDATE_CHECK_INTERVAL);
+
+      // 앱이 포그라운드로 돌아올 때 체크
+      const onVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          registration.update();
+        }
+      };
+      document.addEventListener('visibilitychange', onVisibilityChange);
+      cleanups.push(() => document.removeEventListener('visibilitychange', onVisibilityChange));
     });
 
     // controllerchange 발생 시 페이지 리로드
@@ -66,6 +76,7 @@ export function useAppUpdate() {
 
     return () => {
       if (intervalId) clearInterval(intervalId);
+      cleanups.forEach((fn) => fn());
     };
   }, []);
 
