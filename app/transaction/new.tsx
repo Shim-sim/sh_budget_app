@@ -320,6 +320,7 @@ export default function NewTransactionScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringDay, setRecurringDay] = useState(() => new Date().getDate());
+  const [recurringDayText, setRecurringDayText] = useState(() => String(new Date().getDate()));
   const [datePickerVisible, setDatePickerVisible] = useState(false);
 
   // 가계부 + 자산 조회
@@ -617,11 +618,21 @@ export default function NewTransactionScreen() {
                     style={{ width: 36 }}
                     keyboardType="number-pad"
                     maxLength={2}
-                    value={String(recurringDay)}
+                    value={recurringDayText}
                     onChangeText={(t) => {
-                      const num = parseInt(t, 10);
-                      if (!t) setRecurringDay(1);
-                      else if (num >= 1 && num <= 31) setRecurringDay(num);
+                      const cleaned = t.replace(/[^0-9]/g, '');
+                      setRecurringDayText(cleaned);
+                      const num = parseInt(cleaned, 10);
+                      if (num >= 1 && num <= 31) setRecurringDay(num);
+                    }}
+                    onBlur={() => {
+                      const num = parseInt(recurringDayText, 10);
+                      if (!num || num < 1 || num > 31) {
+                        setRecurringDay(1);
+                        setRecurringDayText('1');
+                      } else {
+                        setRecurringDayText(String(num));
+                      }
                     }}
                   />
                 </View>
