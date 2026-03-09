@@ -15,6 +15,7 @@ if (!fs.existsSync(indexPath)) {
 let html = fs.readFileSync(indexPath, 'utf-8');
 
 const pwaTags = `
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="가계부" />
@@ -23,6 +24,9 @@ const pwaTags = `
 
 // Replace lang="en" with lang="ko"
 html = html.replace('<html lang="en">', '<html lang="ko">');
+
+// 기존 viewport meta 제거 (Expo 기본값 대체)
+html = html.replace(/<meta name="viewport"[^>]*>/g, '');
 
 // Inject PWA tags before </head>
 html = html.replace('</head>', `${pwaTags}\n  </head>`);
