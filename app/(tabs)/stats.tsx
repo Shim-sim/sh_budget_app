@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { useState, useMemo, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { bookApi } from '../../src/api/book';
 import { assetApi } from '../../src/api/asset';
@@ -50,6 +50,14 @@ function BarRow({ label, amount, max, color }: { label: string; amount: number; 
 
 export default function StatsScreen() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
 
   const { data: book } = useQuery({
     queryKey: ['book'],
@@ -118,6 +126,9 @@ export default function StatsScreen() {
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
         >
           {/* 수입 / 지출 카드 */}
           <View className="flex-row gap-3 mt-3 mb-4">
