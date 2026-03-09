@@ -552,25 +552,29 @@ export default function HomeScreen() {
   const handleTxDelete = () => {
     if (!selectedTx) return;
     const tx = selectedTx;
-    Alert.alert('거래 삭제', '이 거래를 삭제하시겠습니까?\n자산 잔액이 복구됩니다.', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await transactionApi.delete(tx.id, tx.bookId);
-            queryClient.invalidateQueries({ queryKey: ['transactions'] });
-            queryClient.invalidateQueries({ queryKey: ['assets'] });
-            queryClient.invalidateQueries({ queryKey: ['assets-total'] });
-            setDetailModalVisible(false);
-            setSelectedTx(null);
-          } catch (err: any) {
-            Alert.alert('삭제 실패', err.message ?? '다시 시도해주세요.');
-          }
+    // Modal을 먼저 닫아야 Alert이 정상 표시됨 (RN 이슈)
+    setDetailModalVisible(false);
+    setTimeout(() => {
+      Alert.alert('거래 삭제', '이 거래를 삭제하시겠습니까?\n자산 잔액이 복구됩니다.', [
+        { text: '취소', style: 'cancel', onPress: () => setSelectedTx(null) },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await transactionApi.delete(tx.id, tx.bookId);
+              queryClient.invalidateQueries({ queryKey: ['transactions'] });
+              queryClient.invalidateQueries({ queryKey: ['assets'] });
+              queryClient.invalidateQueries({ queryKey: ['assets-total'] });
+            } catch (err: any) {
+              Alert.alert('삭제 실패', err.message ?? '다시 시도해주세요.');
+            } finally {
+              setSelectedTx(null);
+            }
+          },
         },
-      },
-    ]);
+      ]);
+    }, 300);
   };
 
   const handleTxEdit = () => {
