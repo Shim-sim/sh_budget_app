@@ -398,13 +398,13 @@ function TransactionDetailModal({
                 </View>
               )}
 
-              {tx.type !== 'TRANSFER' && tx.categoryName && (
+              {tx.type !== 'TRANSFER' && (
                 <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
                   <View className="flex-row items-center gap-2">
                     <Ionicons name="pricetag-outline" size={16} color={colors.textMuted} />
                     <Text className="text-text-secondary text-sm">카테고리</Text>
                   </View>
-                  <Text className="text-text-primary text-sm font-medium">{tx.categoryName}</Text>
+                  <Text className="text-text-primary text-sm font-medium">{tx.categoryName ?? '-'}</Text>
                 </View>
               )}
 
@@ -420,17 +420,15 @@ function TransactionDetailModal({
                 </View>
               )}
 
-              {tx.memo ? (
-                <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
-                  <View className="flex-row items-center gap-2">
-                    <Ionicons name="pencil-outline" size={16} color={colors.textMuted} />
-                    <Text className="text-text-secondary text-sm">메모</Text>
-                  </View>
-                  <Text className="text-text-primary text-sm font-medium" numberOfLines={1} style={{ maxWidth: '60%' }}>
-                    {tx.memo}
-                  </Text>
+              <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+                <View className="flex-row items-center gap-2">
+                  <Ionicons name="pencil-outline" size={16} color={colors.textMuted} />
+                  <Text className="text-text-secondary text-sm">메모</Text>
                 </View>
-              ) : null}
+                <Text className="text-text-primary text-sm font-medium" numberOfLines={1} style={{ maxWidth: '60%' }}>
+                  {tx.memo || '-'}
+                </Text>
+              </View>
 
               {tx.createdByNickname && (
                 <View className="flex-row items-center justify-between px-4 py-3">
