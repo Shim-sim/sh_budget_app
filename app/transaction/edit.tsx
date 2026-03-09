@@ -9,6 +9,7 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -17,7 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { assetApi } from '../../src/api/asset';
 import { categoryApi } from '../../src/api/category';
 import { transactionApi } from '../../src/api/transaction';
-import type { Asset, Category, TransactionType } from '../../src/types';
+import { recurringApi } from '../../src/api/recurring';
+import type { Asset, Category, TransactionType, RecurringTransaction } from '../../src/types';
 import colors from '../../constants/colors';
 
 // ─── 날짜 유틸 ───────────────────────────────────────────────────────────────
@@ -257,6 +259,11 @@ export default function EditTransactionScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringDay, setRecurringDay] = useState(1);
+  const [recurringDayText, setRecurringDayText] = useState('1');
+  const [existingRecurringId, setExistingRecurringId] = useState<number | null>(null);
+  const [initialIsRecurring, setInitialIsRecurring] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
   // 기존 거래 조회
@@ -275,6 +282,13 @@ export default function EditTransactionScreen() {
   const { data: categories = [] } = useQuery({
     queryKey: ['categories', txBookId],
     queryFn: () => categoryApi.getAll(txBookId).then((r) => r.data.data),
+    enabled: !!txBookId,
+  });
+
+  // 반복 거래 조회
+  const { data: recurringList = [] } = useQuery({
+    queryKey: ['recurring', txBookId],
+    queryFn: () => recurringApi.getAll(txBookId).then((r) => r.data.data),
     enabled: !!txBookId,
   });
 
@@ -299,9 +313,27 @@ export default function EditTransactionScreen() {
           setSelectedCategory(cat);
         }
       }
+      // 반복 거래 매칭 (같은 타입, 금액, 자산으로 매칭)
+      if (recurringList.length > 0) {
+        const matched = recurringList.find((r: RecurringTransaction) =>
+          r.type === transaction.type &&
+          r.amount === transaction.amount &&
+          (transaction.type === 'TRANSFER'
+            ? r.fromAssetId === transaction.fromAssetId && r.toAssetId === transaction.toAssetId
+            : r.assetId === transaction.assetId && r.categoryId === transaction.categoryId)
+        );
+        if (matched) {
+          setIsRecurring(true);
+          setInitialIsRecurring(true);
+          setExistingRecurringId(matched.id);
+          setRecurringDay(matched.dayOfMonth);
+          setRecurringDayText(String(matched.dayOfMonth));
+        }
+      }
+
       setInitialized(true);
     }
-  }, [transaction, assets, categories, initialized]);
+  }, [transaction, assets, categories, recurringList, initialized]);
 
   // 카테고리 별도 초기화 (categories가 늦게 로드될 수 있음)
   useEffect(() => {
@@ -355,9 +387,29 @@ export default function EditTransactionScreen() {
           ? { assetId: selectedAsset!.id, categoryId: selectedCategory!.id }
           : { fromAssetId: fromAsset!.id, toAssetId: toAsset!.id }),
       });
+      // 반복 거래 처리
+      if (isRecurring && !initialIsRecurring) {
+        try {
+          await recurringApi.create({
+            bookId: txBookId,
+            type: txType,
+            amount,
+            dayOfMonth: recurringDay,
+            memo: memo || undefined,
+            ...(txType !== 'TRANSFER'
+              ? { assetId: selectedAsset!.id, categoryId: selectedCategory!.id }
+              : { fromAssetId: fromAsset!.id, toAssetId: toAsset!.id }),
+          });
+        } catch (e: any) { console.warn('반복 거래 생성 실패:', e.message); }
+      } else if (!isRecurring && initialIsRecurring && existingRecurringId) {
+        try { await recurringApi.delete(existingRecurringId); }
+        catch (e: any) { console.warn('반복 거래 삭제 실패:', e.message); }
+      }
+
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['assets'] });
       queryClient.invalidateQueries({ queryKey: ['assets-total'] });
+      queryClient.invalidateQueries({ queryKey: ['recurring'] });
       router.back();
     } catch (err: any) {
       Alert.alert('수정 실패', err.message ?? '다시 시도해주세요.');
@@ -539,7 +591,7 @@ export default function EditTransactionScreen() {
           )}
 
           {/* 메모 */}
-          <View className="flex-row items-center px-4 py-3">
+          <View className="flex-row items-center px-4 py-3 border-b border-border">
             <Ionicons name="pencil-outline" size={17} color={colors.textSecondary} />
             <TextInput
               className="flex-1 ml-2 text-sm text-text-primary"
@@ -549,6 +601,52 @@ export default function EditTransactionScreen() {
               onChangeText={setMemo}
               returnKeyType="done"
             />
+          </View>
+
+          {/* 반복 설정 */}
+          <View className="px-4 py-3">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-2">
+                <Ionicons name="repeat-outline" size={17} color={colors.textSecondary} />
+                <Text className="text-text-secondary text-sm">반복 설정</Text>
+              </View>
+              <Switch
+                value={isRecurring}
+                onValueChange={setIsRecurring}
+                trackColor={{ false: colors.border, true: colors.primaryLight }}
+                thumbColor={isRecurring ? colors.primary : colors.textMuted}
+              />
+            </View>
+            {isRecurring && (
+              <View className="flex-row items-center mt-3 ml-6">
+                <Text className="text-text-secondary text-sm">매월</Text>
+                <View className="mx-2 bg-bg rounded-lg border border-border px-2">
+                  <TextInput
+                    className="text-center text-sm text-text-primary py-1"
+                    style={{ width: 36 }}
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    value={recurringDayText}
+                    onChangeText={(t) => {
+                      const cleaned = t.replace(/[^0-9]/g, '');
+                      setRecurringDayText(cleaned);
+                      const num = parseInt(cleaned, 10);
+                      if (num >= 1 && num <= 31) setRecurringDay(num);
+                    }}
+                    onBlur={() => {
+                      const num = parseInt(recurringDayText, 10);
+                      if (!num || num < 1 || num > 31) {
+                        setRecurringDay(1);
+                        setRecurringDayText('1');
+                      } else {
+                        setRecurringDayText(String(num));
+                      }
+                    }}
+                  />
+                </View>
+                <Text className="text-text-secondary text-sm">일 반복</Text>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
