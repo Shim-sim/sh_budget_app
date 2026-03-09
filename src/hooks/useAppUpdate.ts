@@ -19,9 +19,21 @@ export function useAppUpdate() {
 
     let intervalId: ReturnType<typeof setInterval>;
 
+    const showLocalUpdateNotification = () => {
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.showNotification('가계부 업데이트', {
+          body: '새 버전이 준비되었습니다. 앱을 열어 업데이트해주세요!',
+          icon: '/app-icon-192.png',
+          badge: '/app-icon-192.png',
+        });
+      });
+    };
+
     const onWaiting = (sw: ServiceWorker) => {
       waitingWorkerRef.current = sw;
       setShowUpdate(true);
+      showLocalUpdateNotification();
     };
 
     navigator.serviceWorker.ready.then((registration) => {
