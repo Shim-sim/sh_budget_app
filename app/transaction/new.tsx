@@ -184,6 +184,114 @@ function CategoryPickerModal({
   );
 }
 
+// ─── 달력 날짜 선택 모달 ──────────────────────────────────────────────────────
+
+function DatePickerModal({
+  visible,
+  selectedDate,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  selectedDate: string;
+  onSelect: (dateStr: string) => void;
+  onClose: () => void;
+}) {
+  const [viewYear, setViewYear] = useState(() => parseInt(selectedDate.split('-')[0]));
+  const [viewMonth, setViewMonth] = useState(() => parseInt(selectedDate.split('-')[1]));
+
+  const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+  const daysInMonth = new Date(viewYear, viewMonth, 0).getDate();
+  const firstDayOfWeek = new Date(viewYear, viewMonth - 1, 1).getDay();
+  const todayStr = toDateString(new Date());
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDayOfWeek; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const prevMonth = () => {
+    if (viewMonth === 1) { setViewYear((y) => y - 1); setViewMonth(12); }
+    else setViewMonth((m) => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 12) { setViewYear((y) => y + 1); setViewMonth(1); }
+    else setViewMonth((m) => m + 1);
+  };
+
+  const makeDateStr = (day: number) =>
+    `${viewYear}-${String(viewMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <TouchableOpacity className="flex-1 bg-black/40" activeOpacity={1} onPress={onClose} />
+      <View className="bg-card rounded-t-3xl px-5 pt-4 pb-8">
+        <View className="w-10 h-1 bg-border rounded-full self-center mb-4" />
+
+        {/* 월 네비게이션 */}
+        <View className="flex-row items-center justify-between mb-4">
+          <TouchableOpacity onPress={prevMonth} hitSlop={12}>
+            <Ionicons name="chevron-back" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <Text className="text-base font-bold text-text-primary">
+            {viewYear}년 {viewMonth}월
+          </Text>
+          <TouchableOpacity onPress={nextMonth} hitSlop={12}>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* 요일 헤더 */}
+        <View className="flex-row mb-1">
+          {WEEKDAYS.map((w, i) => (
+            <View key={i} className="flex-1 items-center py-1">
+              <Text className={`text-xs font-medium ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-text-muted'}`}>
+                {w}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* 날짜 그리드 */}
+        <View className="flex-row flex-wrap">
+          {cells.map((day, idx) => {
+            if (day === null) {
+              return <View key={`e-${idx}`} style={{ width: '14.28%', height: 40 }} />;
+            }
+            const ds = makeDateStr(day);
+            const isSelected = ds === selectedDate;
+            const isToday = ds === todayStr;
+            const dayOfWeek = (firstDayOfWeek + day - 1) % 7;
+
+            return (
+              <TouchableOpacity
+                key={day}
+                style={{ width: '14.28%', height: 40 }}
+                className="items-center justify-center"
+                onPress={() => { onSelect(ds); onClose(); }}
+              >
+                <View className={`w-8 h-8 items-center justify-center rounded-full ${isSelected ? 'bg-primary' : ''}`}>
+                  <Text
+                    className={`text-sm ${
+                      isSelected ? 'text-white font-bold' :
+                      isToday ? 'text-primary font-bold' :
+                      dayOfWeek === 0 ? 'text-red-400' :
+                      dayOfWeek === 6 ? 'text-blue-400' :
+                      'text-text-primary'
+                    }`}
+                  >
+                    {day}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── 메인 화면 ───────────────────────────────────────────────────────────────
 
 const TYPE_LABELS: { type: TransactionType; label: string }[] = [
@@ -212,6 +320,7 @@ export default function NewTransactionScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringDay, setRecurringDay] = useState(() => new Date().getDate());
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
 
   // 가계부 + 자산 조회
   const { data: book } = useQuery({
@@ -387,9 +496,11 @@ export default function NewTransactionScreen() {
               <TouchableOpacity onPress={() => setDate((d) => changeDate(d, -1))} hitSlop={8}>
                 <Ionicons name="chevron-back" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
-              <Text className="text-text-primary text-sm font-medium">
-                {formatDisplayDate(date)}
-              </Text>
+              <TouchableOpacity onPress={() => setDatePickerVisible(true)}>
+                <Text className="text-text-primary text-sm font-medium">
+                  {formatDisplayDate(date)}
+                </Text>
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => setDate((d) => changeDate(d, 1))} hitSlop={8}>
                 <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
@@ -519,9 +630,10 @@ export default function NewTransactionScreen() {
             )}
           </View>
         </View>
-        {/* 키패드 */}
-        <Numpad onPress={handleKey} disabled={!isNumpadEnabled} />
       </ScrollView>
+
+      {/* 키패드 (하단 고정) */}
+      <Numpad onPress={handleKey} disabled={!isNumpadEnabled} />
 
       {/* 완료 버튼 (하단 고정) */}
       <TouchableOpacity
@@ -571,6 +683,14 @@ export default function NewTransactionScreen() {
         selectedId={selectedCategory?.id ?? null}
         onSelect={(cat) => setSelectedCategory(cat)}
         onClose={() => setCategoryModal(false)}
+      />
+
+      {/* 날짜 선택 모달 */}
+      <DatePickerModal
+        visible={datePickerVisible}
+        selectedDate={date}
+        onSelect={(d) => setDate(d)}
+        onClose={() => setDatePickerVisible(false)}
       />
     </SafeAreaView>
   );
