@@ -388,7 +388,12 @@ export default function EditTransactionScreen() {
           : { fromAssetId: fromAsset!.id, toAssetId: toAsset!.id }),
       });
       // 반복 거래 처리
-      if (isRecurring && !initialIsRecurring) {
+      if (isRecurring) {
+        // 기존 반복 거래가 있으면 삭제 후 새로 생성 (update API 없으므로)
+        if (existingRecurringId) {
+          try { await recurringApi.delete(existingRecurringId); }
+          catch (e: any) { console.warn('기존 반복 거래 삭제 실패:', e.message); }
+        }
         try {
           await recurringApi.create({
             bookId: txBookId,
