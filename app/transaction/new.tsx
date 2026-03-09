@@ -498,22 +498,21 @@ export default function NewTransactionScreen() {
             )}
           </View>
         </View>
+        {/* 키패드 */}
+        <Numpad onPress={handleKey} />
       </ScrollView>
 
-      {/* 키패드 (하단 고정) */}
-      <View>
-        <Numpad onPress={handleKey} />
-        <TouchableOpacity
-          className="mx-5 my-3 bg-primary rounded-2xl py-4 items-center"
-          style={{ opacity: isSubmitting ? 0.6 : 1 }}
-          onPress={handleSubmit}
-          disabled={isSubmitting}
-        >
-          <Text className="text-white font-bold text-base">
-            {isSubmitting ? '등록 중...' : '완료'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* 완료 버튼 (하단 고정) */}
+      <TouchableOpacity
+        className="mx-5 my-3 bg-primary rounded-2xl py-4 items-center"
+        style={{ opacity: isSubmitting ? 0.6 : 1 }}
+        onPress={handleSubmit}
+        disabled={isSubmitting}
+      >
+        <Text className="text-white font-bold text-base">
+          {isSubmitting ? '등록 중...' : '완료'}
+        </Text>
+      </TouchableOpacity>
 
       {/* 자산 선택 모달 */}
       <AssetPickerModal
