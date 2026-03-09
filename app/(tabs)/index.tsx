@@ -306,13 +306,17 @@ function TransactionDetailModal({
   onClose,
   onEdit,
   onDelete,
+  isDeleting,
 }: {
   tx: Transaction | null;
   visible: boolean;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  isDeleting: boolean;
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   if (!tx) return null;
 
   const typeLabel = tx.type === 'INCOME' ? '수입' : tx.type === 'EXPENSE' ? '지출' : '이체';
@@ -322,114 +326,142 @@ function TransactionDetailModal({
     tx.type === 'INCOME' ? 'arrow-down' :
     tx.type === 'EXPENSE' ? 'arrow-up' : 'swap-horizontal';
 
+  const handleClose = () => { setConfirmDelete(false); onClose(); };
+
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <TouchableOpacity className="flex-1 bg-black/40" activeOpacity={1} onPress={onClose} />
+      <TouchableOpacity className="flex-1 bg-black/40" activeOpacity={1} onPress={handleClose} />
       <View className="bg-card rounded-t-3xl px-6 pt-4 pb-8">
         <View className="w-10 h-1 bg-border rounded-full self-center mb-5" />
 
-        {/* 타입 + 금액 */}
-        <View className="items-center mb-5">
-          <View
-            className="w-12 h-12 rounded-2xl items-center justify-center mb-3"
-            style={{ backgroundColor: tx.type === 'INCOME' ? colors.primaryMuted : tx.type === 'EXPENSE' ? '#FEF2F2' : '#FFFBEB' }}
-          >
-            <Ionicons name={iconName as any} size={22} color={typeColor} />
+        {/* 삭제 확인 모드 */}
+        {confirmDelete ? (
+          <View className="items-center py-4">
+            <View className="w-14 h-14 rounded-full items-center justify-center mb-4" style={{ backgroundColor: '#FEF2F2' }}>
+              <Ionicons name="warning-outline" size={28} color={colors.expense} />
+            </View>
+            <Text className="text-lg font-bold text-text-primary mb-2">거래를 삭제하시겠습니까?</Text>
+            <Text className="text-text-muted text-sm mb-6">자산 잔액이 자동으로 복구됩니다.</Text>
+            <View className="flex-row gap-3 w-full">
+              <TouchableOpacity
+                className="flex-1 py-3.5 rounded-2xl border border-border bg-bg items-center"
+                onPress={() => setConfirmDelete(false)}
+                disabled={isDeleting}
+              >
+                <Text className="text-sm font-semibold text-text-secondary">취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-1 py-3.5 rounded-2xl items-center"
+                style={{ backgroundColor: colors.expense, opacity: isDeleting ? 0.6 : 1 }}
+                onPress={onDelete}
+                disabled={isDeleting}
+              >
+                <Text className="text-white text-sm font-semibold">
+                  {isDeleting ? '삭제 중...' : '삭제'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <Text className="text-text-muted text-sm mb-1">{typeLabel}</Text>
-          <Text className="text-3xl font-bold" style={{ color: typeColor }}>
-            {amountPrefix}{formatAmount(tx.amount)}원
-          </Text>
-        </View>
-
-        {/* 상세 정보 */}
-        <View className="bg-bg rounded-2xl overflow-hidden mb-5">
-          {/* 날짜 */}
-          <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
-            <View className="flex-row items-center gap-2">
-              <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
-              <Text className="text-text-secondary text-sm">날짜</Text>
-            </View>
-            <Text className="text-text-primary text-sm font-medium">{formatDate(tx.date)}</Text>
-          </View>
-
-          {/* 자산 */}
-          {tx.type !== 'TRANSFER' && tx.assetName && (
-            <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
-              <View className="flex-row items-center gap-2">
-                <Ionicons name="wallet-outline" size={16} color={colors.textMuted} />
-                <Text className="text-text-secondary text-sm">자산</Text>
+        ) : (
+          <>
+            {/* 타입 + 금액 */}
+            <View className="items-center mb-5">
+              <View
+                className="w-12 h-12 rounded-2xl items-center justify-center mb-3"
+                style={{ backgroundColor: tx.type === 'INCOME' ? colors.primaryMuted : tx.type === 'EXPENSE' ? '#FEF2F2' : '#FFFBEB' }}
+              >
+                <Ionicons name={iconName as any} size={22} color={typeColor} />
               </View>
-              <Text className="text-text-primary text-sm font-medium">{tx.assetName}</Text>
-            </View>
-          )}
-
-          {/* 카테고리 */}
-          {tx.type !== 'TRANSFER' && tx.categoryName && (
-            <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
-              <View className="flex-row items-center gap-2">
-                <Ionicons name="pricetag-outline" size={16} color={colors.textMuted} />
-                <Text className="text-text-secondary text-sm">카테고리</Text>
-              </View>
-              <Text className="text-text-primary text-sm font-medium">{tx.categoryName}</Text>
-            </View>
-          )}
-
-          {/* 이체 자산 */}
-          {tx.type === 'TRANSFER' && (
-            <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
-              <View className="flex-row items-center gap-2">
-                <Ionicons name="swap-horizontal-outline" size={16} color={colors.textMuted} />
-                <Text className="text-text-secondary text-sm">이체</Text>
-              </View>
-              <Text className="text-text-primary text-sm font-medium">
-                {tx.fromAssetName} → {tx.toAssetName}
+              <Text className="text-text-muted text-sm mb-1">{typeLabel}</Text>
+              <Text className="text-3xl font-bold" style={{ color: typeColor }}>
+                {amountPrefix}{formatAmount(tx.amount)}원
               </Text>
             </View>
-          )}
 
-          {/* 메모 */}
-          {tx.memo ? (
-            <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
-              <View className="flex-row items-center gap-2">
-                <Ionicons name="pencil-outline" size={16} color={colors.textMuted} />
-                <Text className="text-text-secondary text-sm">메모</Text>
+            {/* 상세 정보 */}
+            <View className="bg-bg rounded-2xl overflow-hidden mb-5">
+              <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+                <View className="flex-row items-center gap-2">
+                  <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
+                  <Text className="text-text-secondary text-sm">날짜</Text>
+                </View>
+                <Text className="text-text-primary text-sm font-medium">{formatDate(tx.date)}</Text>
               </View>
-              <Text className="text-text-primary text-sm font-medium" numberOfLines={1} style={{ maxWidth: '60%' }}>
-                {tx.memo}
-              </Text>
-            </View>
-          ) : null}
 
-          {/* 등록자 */}
-          {tx.createdByNickname && (
-            <View className="flex-row items-center justify-between px-4 py-3">
-              <View className="flex-row items-center gap-2">
-                <Ionicons name="person-outline" size={16} color={colors.textMuted} />
-                <Text className="text-text-secondary text-sm">등록</Text>
-              </View>
-              <Text className="text-text-primary text-sm font-medium">{tx.createdByNickname}</Text>
-            </View>
-          )}
-        </View>
+              {tx.type !== 'TRANSFER' && tx.assetName && (
+                <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+                  <View className="flex-row items-center gap-2">
+                    <Ionicons name="wallet-outline" size={16} color={colors.textMuted} />
+                    <Text className="text-text-secondary text-sm">자산</Text>
+                  </View>
+                  <Text className="text-text-primary text-sm font-medium">{tx.assetName}</Text>
+                </View>
+              )}
 
-        {/* 액션 버튼 */}
-        <View className="flex-row gap-3">
-          <TouchableOpacity
-            className="flex-1 flex-row items-center justify-center gap-2 py-3.5 rounded-2xl border border-border bg-bg"
-            onPress={onDelete}
-          >
-            <Ionicons name="trash-outline" size={18} color={colors.expense} />
-            <Text className="text-sm font-semibold" style={{ color: colors.expense }}>삭제</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className="flex-1 flex-row items-center justify-center gap-2 py-3.5 rounded-2xl bg-primary"
-            onPress={onEdit}
-          >
-            <Ionicons name="create-outline" size={18} color={colors.white} />
-            <Text className="text-white text-sm font-semibold">수정</Text>
-          </TouchableOpacity>
-        </View>
+              {tx.type !== 'TRANSFER' && tx.categoryName && (
+                <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+                  <View className="flex-row items-center gap-2">
+                    <Ionicons name="pricetag-outline" size={16} color={colors.textMuted} />
+                    <Text className="text-text-secondary text-sm">카테고리</Text>
+                  </View>
+                  <Text className="text-text-primary text-sm font-medium">{tx.categoryName}</Text>
+                </View>
+              )}
+
+              {tx.type === 'TRANSFER' && (
+                <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+                  <View className="flex-row items-center gap-2">
+                    <Ionicons name="swap-horizontal-outline" size={16} color={colors.textMuted} />
+                    <Text className="text-text-secondary text-sm">이체</Text>
+                  </View>
+                  <Text className="text-text-primary text-sm font-medium">
+                    {tx.fromAssetName} → {tx.toAssetName}
+                  </Text>
+                </View>
+              )}
+
+              {tx.memo ? (
+                <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+                  <View className="flex-row items-center gap-2">
+                    <Ionicons name="pencil-outline" size={16} color={colors.textMuted} />
+                    <Text className="text-text-secondary text-sm">메모</Text>
+                  </View>
+                  <Text className="text-text-primary text-sm font-medium" numberOfLines={1} style={{ maxWidth: '60%' }}>
+                    {tx.memo}
+                  </Text>
+                </View>
+              ) : null}
+
+              {tx.createdByNickname && (
+                <View className="flex-row items-center justify-between px-4 py-3">
+                  <View className="flex-row items-center gap-2">
+                    <Ionicons name="person-outline" size={16} color={colors.textMuted} />
+                    <Text className="text-text-secondary text-sm">등록</Text>
+                  </View>
+                  <Text className="text-text-primary text-sm font-medium">{tx.createdByNickname}</Text>
+                </View>
+              )}
+            </View>
+
+            {/* 액션 버튼 */}
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                className="flex-1 flex-row items-center justify-center gap-2 py-3.5 rounded-2xl border border-border bg-bg"
+                onPress={() => setConfirmDelete(true)}
+              >
+                <Ionicons name="trash-outline" size={18} color={colors.expense} />
+                <Text className="text-sm font-semibold" style={{ color: colors.expense }}>삭제</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-1 flex-row items-center justify-center gap-2 py-3.5 rounded-2xl bg-primary"
+                onPress={onEdit}
+              >
+                <Ionicons name="create-outline" size={18} color={colors.white} />
+                <Text className="text-white text-sm font-semibold">수정</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </View>
     </Modal>
   );
@@ -445,6 +477,7 @@ export default function HomeScreen() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [isDeletingTx, setIsDeletingTx] = useState(false);
   const { pullDistance, refreshing, pulling, handlers } = usePullToRefresh(
     useCallback(async () => { await queryClient.invalidateQueries(); }, [queryClient])
   );
@@ -549,32 +582,24 @@ export default function HomeScreen() {
     setDetailModalVisible(true);
   };
 
-  const handleTxDelete = () => {
+  const handleTxDelete = async () => {
     if (!selectedTx) return;
-    const tx = selectedTx;
-    // Modal을 먼저 닫아야 Alert이 정상 표시됨 (RN 이슈)
-    setDetailModalVisible(false);
-    setTimeout(() => {
-      Alert.alert('거래 삭제', '이 거래를 삭제하시겠습니까?\n자산 잔액이 복구됩니다.', [
-        { text: '취소', style: 'cancel', onPress: () => setSelectedTx(null) },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await transactionApi.delete(tx.id, tx.bookId);
-              queryClient.invalidateQueries({ queryKey: ['transactions'] });
-              queryClient.invalidateQueries({ queryKey: ['assets'] });
-              queryClient.invalidateQueries({ queryKey: ['assets-total'] });
-            } catch (err: any) {
-              Alert.alert('삭제 실패', err.message ?? '다시 시도해주세요.');
-            } finally {
-              setSelectedTx(null);
-            }
-          },
-        },
-      ]);
-    }, 300);
+    setIsDeletingTx(true);
+    try {
+      await transactionApi.delete(selectedTx.id, selectedTx.bookId);
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['assets-total'] });
+      setDetailModalVisible(false);
+      setSelectedTx(null);
+    } catch (err: any) {
+      // 모달 내에서 에러 표시하기 어려우므로 닫고 Alert
+      setDetailModalVisible(false);
+      setSelectedTx(null);
+      setTimeout(() => Alert.alert('삭제 실패', err.message ?? '다시 시도해주세요.'), 300);
+    } finally {
+      setIsDeletingTx(false);
+    }
   };
 
   const handleTxEdit = () => {
@@ -748,6 +773,7 @@ export default function HomeScreen() {
         onClose={() => { setDetailModalVisible(false); setSelectedTx(null); }}
         onEdit={handleTxEdit}
         onDelete={handleTxDelete}
+        isDeleting={isDeletingTx}
       />
     </SafeAreaView>
   );

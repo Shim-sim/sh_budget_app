@@ -256,6 +256,7 @@ export default function EditTransactionScreen() {
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
   // 기존 거래 조회
@@ -365,28 +366,20 @@ export default function EditTransactionScreen() {
     }
   };
 
-  const handleDelete = () => {
-    Alert.alert('거래 삭제', '이 거래를 삭제하시겠습니까?\n자산 잔액이 복구됩니다.', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          setIsDeleting(true);
-          try {
-            await transactionApi.delete(txId, txBookId);
-            queryClient.invalidateQueries({ queryKey: ['transactions'] });
-            queryClient.invalidateQueries({ queryKey: ['assets'] });
-            queryClient.invalidateQueries({ queryKey: ['assets-total'] });
-            router.back();
-          } catch (err: any) {
-            Alert.alert('삭제 실패', err.message ?? '다시 시도해주세요.');
-          } finally {
-            setIsDeleting(false);
-          }
-        },
-      },
-    ]);
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await transactionApi.delete(txId, txBookId);
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['assets-total'] });
+      router.back();
+    } catch (err: any) {
+      setShowDeleteConfirm(false);
+      Alert.alert('삭제 실패', err.message ?? '다시 시도해주세요.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const typeColor =
@@ -409,7 +402,7 @@ export default function EditTransactionScreen() {
           <Ionicons name="close" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text className="text-base font-bold text-text-primary">거래 수정</Text>
-        <TouchableOpacity onPress={handleDelete} hitSlop={12} disabled={isDeleting}>
+        <TouchableOpacity onPress={() => setShowDeleteConfirm(true)} hitSlop={12} disabled={isDeleting}>
           <Ionicons name="trash-outline" size={22} color={colors.expense} />
         </TouchableOpacity>
       </View>
@@ -620,6 +613,38 @@ export default function EditTransactionScreen() {
         onSelect={(d) => setDate(d)}
         onClose={() => setDatePickerVisible(false)}
       />
+
+      {/* 삭제 확인 모달 */}
+      <Modal visible={showDeleteConfirm} transparent animationType="fade">
+        <View className="flex-1 bg-black/40 items-center justify-center px-8">
+          <View className="bg-card rounded-3xl px-6 py-6 w-full items-center">
+            <View className="w-14 h-14 rounded-full items-center justify-center mb-4" style={{ backgroundColor: '#FEF2F2' }}>
+              <Ionicons name="warning-outline" size={28} color={colors.expense} />
+            </View>
+            <Text className="text-lg font-bold text-text-primary mb-2">거래를 삭제하시겠습니까?</Text>
+            <Text className="text-text-muted text-sm mb-6">자산 잔액이 자동으로 복구됩니다.</Text>
+            <View className="flex-row gap-3 w-full">
+              <TouchableOpacity
+                className="flex-1 py-3.5 rounded-2xl border border-border bg-bg items-center"
+                onPress={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+              >
+                <Text className="text-sm font-semibold text-text-secondary">취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-1 py-3.5 rounded-2xl items-center"
+                style={{ backgroundColor: colors.expense, opacity: isDeleting ? 0.6 : 1 }}
+                onPress={handleDelete}
+                disabled={isDeleting}
+              >
+                <Text className="text-white text-sm font-semibold">
+                  {isDeleting ? '삭제 중...' : '삭제'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
