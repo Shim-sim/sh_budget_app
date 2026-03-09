@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Switch,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -342,162 +343,165 @@ export default function NewTransactionScreen() {
         ))}
       </View>
 
-      {/* 금액 표시 */}
-      <View className="items-center py-4 mb-2">
-        <Text className="text-text-muted text-sm mb-1">금액</Text>
-        <Text className="text-5xl font-bold" style={{ color: typeColor }}>
-          {amount.toLocaleString()}
-        </Text>
-        <Text className="text-text-secondary text-lg mt-1">원</Text>
-      </View>
-
-      {/* 날짜 / 자산 / 메모 */}
-      <View className="mx-5 mb-3 bg-card rounded-2xl border border-border overflow-hidden">
-        {/* 날짜 */}
-        <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
-          <View className="flex-row items-center gap-2">
-            <Ionicons name="calendar-outline" size={17} color={colors.textSecondary} />
-            <Text className="text-text-secondary text-sm">날짜</Text>
-          </View>
-          <View className="flex-row items-center gap-3">
-            <TouchableOpacity onPress={() => setDate((d) => changeDate(d, -1))} hitSlop={8}>
-              <Ionicons name="chevron-back" size={16} color={colors.textSecondary} />
-            </TouchableOpacity>
-            <Text className="text-text-primary text-sm font-medium">
-              {formatDisplayDate(date)}
-            </Text>
-            <TouchableOpacity onPress={() => setDate((d) => changeDate(d, 1))} hitSlop={8}>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+      {/* 스크롤 가능한 중간 영역 */}
+      <ScrollView className="flex-1" bounces={false} showsVerticalScrollIndicator={false}>
+        {/* 금액 표시 */}
+        <View className="items-center py-4 mb-2">
+          <Text className="text-text-muted text-sm mb-1">금액</Text>
+          <Text className="text-5xl font-bold" style={{ color: typeColor }}>
+            {amount.toLocaleString()}
+          </Text>
+          <Text className="text-text-secondary text-lg mt-1">원</Text>
         </View>
 
-        {/* 자산 (수입/지출) */}
-        {txType !== 'TRANSFER' && (
-          <TouchableOpacity
-            className="flex-row items-center justify-between px-4 py-3 border-b border-border"
-            onPress={() => setAssetModal('single')}
-          >
+        {/* 날짜 / 자산 / 메모 */}
+        <View className="mx-5 mb-3 bg-card rounded-2xl border border-border overflow-hidden">
+          {/* 날짜 */}
+          <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
             <View className="flex-row items-center gap-2">
-              <Ionicons name="wallet-outline" size={17} color={colors.textSecondary} />
-              <Text className="text-text-secondary text-sm">자산</Text>
+              <Ionicons name="calendar-outline" size={17} color={colors.textSecondary} />
+              <Text className="text-text-secondary text-sm">날짜</Text>
             </View>
-            <View className="flex-row items-center gap-1">
-              <Text className={`text-sm ${selectedAsset ? 'text-text-primary font-medium' : 'text-text-muted'}`}>
-                {selectedAsset?.name ?? '선택하세요'}
+            <View className="flex-row items-center gap-3">
+              <TouchableOpacity onPress={() => setDate((d) => changeDate(d, -1))} hitSlop={8}>
+                <Ionicons name="chevron-back" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <Text className="text-text-primary text-sm font-medium">
+                {formatDisplayDate(date)}
               </Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+              <TouchableOpacity onPress={() => setDate((d) => changeDate(d, 1))} hitSlop={8}>
+                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-        )}
+          </View>
 
-        {/* 카테고리 (수입/지출) */}
-        {txType !== 'TRANSFER' && (
-          <TouchableOpacity
-            className="flex-row items-center justify-between px-4 py-3 border-b border-border"
-            onPress={() => setCategoryModal(true)}
-          >
-            <View className="flex-row items-center gap-2">
-              <Ionicons name="pricetag-outline" size={17} color={colors.textSecondary} />
-              <Text className="text-text-secondary text-sm">카테고리</Text>
-            </View>
-            <View className="flex-row items-center gap-1">
-              <Text className={`text-sm ${selectedCategory ? 'text-text-primary font-medium' : 'text-text-muted'}`}>
-                {selectedCategory?.name ?? '선택하세요'}
-              </Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {/* 이체: 출발/도착 자산 */}
-        {txType === 'TRANSFER' && (
-          <>
+          {/* 자산 (수입/지출) */}
+          {txType !== 'TRANSFER' && (
             <TouchableOpacity
               className="flex-row items-center justify-between px-4 py-3 border-b border-border"
-              onPress={() => setAssetModal('from')}
+              onPress={() => setAssetModal('single')}
             >
               <View className="flex-row items-center gap-2">
-                <Ionicons name="arrow-up-outline" size={17} color={colors.textSecondary} />
-                <Text className="text-text-secondary text-sm">출발 자산</Text>
+                <Ionicons name="wallet-outline" size={17} color={colors.textSecondary} />
+                <Text className="text-text-secondary text-sm">자산</Text>
               </View>
               <View className="flex-row items-center gap-1">
-                <Text className={`text-sm ${fromAsset ? 'text-text-primary font-medium' : 'text-text-muted'}`}>
-                  {fromAsset?.name ?? '선택하세요'}
+                <Text className={`text-sm ${selectedAsset ? 'text-text-primary font-medium' : 'text-text-muted'}`}>
+                  {selectedAsset?.name ?? '선택하세요'}
                 </Text>
                 <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
               </View>
             </TouchableOpacity>
+          )}
+
+          {/* 카테고리 (수입/지출) */}
+          {txType !== 'TRANSFER' && (
             <TouchableOpacity
               className="flex-row items-center justify-between px-4 py-3 border-b border-border"
-              onPress={() => setAssetModal('to')}
+              onPress={() => setCategoryModal(true)}
             >
               <View className="flex-row items-center gap-2">
-                <Ionicons name="arrow-down-outline" size={17} color={colors.textSecondary} />
-                <Text className="text-text-secondary text-sm">도착 자산</Text>
+                <Ionicons name="pricetag-outline" size={17} color={colors.textSecondary} />
+                <Text className="text-text-secondary text-sm">카테고리</Text>
               </View>
               <View className="flex-row items-center gap-1">
-                <Text className={`text-sm ${toAsset ? 'text-text-primary font-medium' : 'text-text-muted'}`}>
-                  {toAsset?.name ?? '선택하세요'}
+                <Text className={`text-sm ${selectedCategory ? 'text-text-primary font-medium' : 'text-text-muted'}`}>
+                  {selectedCategory?.name ?? '선택하세요'}
                 </Text>
                 <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
               </View>
             </TouchableOpacity>
-          </>
-        )}
+          )}
 
-        {/* 메모 */}
-        <View className="flex-row items-center px-4 py-3 border-b border-border">
-          <Ionicons name="pencil-outline" size={17} color={colors.textSecondary} />
-          <TextInput
-            className="flex-1 ml-2 text-sm text-text-primary"
-            placeholder="메모 (선택)"
-            placeholderTextColor={colors.textMuted}
-            value={memo}
-            onChangeText={setMemo}
-            returnKeyType="done"
-          />
-        </View>
+          {/* 이체: 출발/도착 자산 */}
+          {txType === 'TRANSFER' && (
+            <>
+              <TouchableOpacity
+                className="flex-row items-center justify-between px-4 py-3 border-b border-border"
+                onPress={() => setAssetModal('from')}
+              >
+                <View className="flex-row items-center gap-2">
+                  <Ionicons name="arrow-up-outline" size={17} color={colors.textSecondary} />
+                  <Text className="text-text-secondary text-sm">출발 자산</Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Text className={`text-sm ${fromAsset ? 'text-text-primary font-medium' : 'text-text-muted'}`}>
+                    {fromAsset?.name ?? '선택하세요'}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-row items-center justify-between px-4 py-3 border-b border-border"
+                onPress={() => setAssetModal('to')}
+              >
+                <View className="flex-row items-center gap-2">
+                  <Ionicons name="arrow-down-outline" size={17} color={colors.textSecondary} />
+                  <Text className="text-text-secondary text-sm">도착 자산</Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Text className={`text-sm ${toAsset ? 'text-text-primary font-medium' : 'text-text-muted'}`}>
+                    {toAsset?.name ?? '선택하세요'}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+                </View>
+              </TouchableOpacity>
+            </>
+          )}
 
-        {/* 반복 설정 */}
-        <View className="px-4 py-3">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2">
-              <Ionicons name="repeat-outline" size={17} color={colors.textSecondary} />
-              <Text className="text-text-secondary text-sm">반복 설정</Text>
-            </View>
-            <Switch
-              value={isRecurring}
-              onValueChange={setIsRecurring}
-              trackColor={{ false: colors.border, true: colors.primaryLight }}
-              thumbColor={isRecurring ? colors.primary : colors.textMuted}
+          {/* 메모 */}
+          <View className="flex-row items-center px-4 py-3 border-b border-border">
+            <Ionicons name="pencil-outline" size={17} color={colors.textSecondary} />
+            <TextInput
+              className="flex-1 ml-2 text-sm text-text-primary"
+              placeholder="메모 (선택)"
+              placeholderTextColor={colors.textMuted}
+              value={memo}
+              onChangeText={setMemo}
+              returnKeyType="done"
             />
           </View>
-          {isRecurring && (
-            <View className="flex-row items-center mt-3 ml-6">
-              <Text className="text-text-secondary text-sm">매월</Text>
-              <View className="mx-2 bg-bg rounded-lg border border-border px-2">
-                <TextInput
-                  className="text-center text-sm text-text-primary py-1"
-                  style={{ width: 36 }}
-                  keyboardType="number-pad"
-                  maxLength={2}
-                  value={String(recurringDay)}
-                  onChangeText={(t) => {
-                    const num = parseInt(t, 10);
-                    if (!t) setRecurringDay(1);
-                    else if (num >= 1 && num <= 31) setRecurringDay(num);
-                  }}
-                />
-              </View>
-              <Text className="text-text-secondary text-sm">일 반복</Text>
-            </View>
-          )}
-        </View>
-      </View>
 
-      {/* 키패드 */}
-      <View className="flex-1 justify-end">
+          {/* 반복 설정 */}
+          <View className="px-4 py-3">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-2">
+                <Ionicons name="repeat-outline" size={17} color={colors.textSecondary} />
+                <Text className="text-text-secondary text-sm">반복 설정</Text>
+              </View>
+              <Switch
+                value={isRecurring}
+                onValueChange={setIsRecurring}
+                trackColor={{ false: colors.border, true: colors.primaryLight }}
+                thumbColor={isRecurring ? colors.primary : colors.textMuted}
+              />
+            </View>
+            {isRecurring && (
+              <View className="flex-row items-center mt-3 ml-6">
+                <Text className="text-text-secondary text-sm">매월</Text>
+                <View className="mx-2 bg-bg rounded-lg border border-border px-2">
+                  <TextInput
+                    className="text-center text-sm text-text-primary py-1"
+                    style={{ width: 36 }}
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    value={String(recurringDay)}
+                    onChangeText={(t) => {
+                      const num = parseInt(t, 10);
+                      if (!t) setRecurringDay(1);
+                      else if (num >= 1 && num <= 31) setRecurringDay(num);
+                    }}
+                  />
+                </View>
+                <Text className="text-text-secondary text-sm">일 반복</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* 키패드 (하단 고정) */}
+      <View>
         <Numpad onPress={handleKey} />
         <TouchableOpacity
           className="mx-5 my-3 bg-primary rounded-2xl py-4 items-center"
