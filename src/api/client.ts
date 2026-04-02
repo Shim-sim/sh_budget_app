@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { storage } from '../utils/storage';
 
 // 프로덕션 백엔드 URL (Azure VM)
-const PROD_API_URL = 'http://52.141.61.227';
+const PROD_API_URL = 'https://sh-budget.duckdns.org';
 
 // API Key (2인 전용 앱이므로 빌드타임 하드코딩)
 const API_KEY = 'sh-budget-2025-secret-key';
